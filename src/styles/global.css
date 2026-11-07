@@ -1,0 +1,319 @@
+/* Design tokens: named colours and sizes used everywhere below.
+   Light values first; dark values swap in automatically when the phone or
+   laptop is set to dark mode. Components only ever use the names. */
+:root {
+  color-scheme: light dark;
+
+  --bg: #f7f5f1;
+  --surface: #ffffff;
+  --text: #1c1b19;
+  --muted: #625d55;
+  --border: #e2ddd4;
+  --field-bg: #ffffff;
+  --focus: #2f6fdf;
+  --danger: #b42318;
+
+  /* Urgency: text colour, soft background, strong edge */
+  --urgent-fg: #9b1c1c;
+  --urgent-bg: #fde4e2;
+  --urgent-edge: #d93a3a;
+  --soon-fg: #8a3d0c;
+  --soon-bg: #fdead6;
+  --soon-edge: #e07b28;
+  --upcoming-fg: #6b5300;
+  --upcoming-bg: #fbf0c4;
+  --upcoming-edge: #cfa50c;
+  --later-fg: #2f5a43;
+  --later-bg: #e4efe8;
+  --later-edge: #79a88d;
+  --closed-fg: #625d55;
+  --closed-bg: #ebe8e3;
+  --closed-edge: #b8b2a8;
+
+  --radius: 12px;
+  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131211;
+    --surface: #1c1b19;
+    --text: #f2efea;
+    --muted: #a8a299;
+    --border: #34312c;
+    --field-bg: #141311;
+    --focus: #7aa7ff;
+    --danger: #ff8a80;
+
+    --urgent-fg: #ffb3ad;
+    --urgent-bg: #4a1c1b;
+    --urgent-edge: #f2645c;
+    --soon-fg: #ffc690;
+    --soon-bg: #46290f;
+    --soon-edge: #ec8a3c;
+    --upcoming-fg: #f0d572;
+    --upcoming-bg: #3f350c;
+    --upcoming-edge: #d6b230;
+    --later-fg: #a9d6ba;
+    --later-bg: #1c3126;
+    --later-edge: #5f9c78;
+    --closed-fg: #a8a299;
+    --closed-bg: #282623;
+    --closed-edge: #57534c;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout: one comfortable column, phone first. */
+.app {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+.app-header {
+  margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+}
+
+.count {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--closed-bg);
+  border-radius: 999px;
+  padding: 0 0.5rem;
+}
+
+section + section {
+  margin-top: 2rem;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1rem;
+}
+
+/* Form */
+.form {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-row {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 30rem) {
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.field {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.field label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.optional {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  min-height: 2.75rem; /* 44px: comfortable for a thumb */
+  padding: 0.625rem 0.75rem;
+  font: inherit;
+  font-size: 1rem; /* 16px or more stops iPhones zooming in when you tap a field */
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.field textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.field [aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.field-error {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--danger);
+}
+
+/* A visible outline when moving around with the keyboard. */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.button {
+  justify-self: start;
+  min-height: 2.75rem;
+  padding: 0.625rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--text);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.alert {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--urgent-fg);
+  background: var(--urgent-bg);
+  border-radius: 8px;
+}
+
+/* List and cards */
+.list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.empty {
+  color: var(--muted);
+}
+
+.card {
+  /* Each card sets these three from its urgency level (below). */
+  --fg: var(--later-fg);
+  --tint: var(--later-bg);
+  --edge: var(--later-edge);
+
+  padding: 0.875rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--edge);
+  border-radius: var(--radius);
+}
+
+.card[data-urgency='urgent'] {
+  --fg: var(--urgent-fg);
+  --tint: var(--urgent-bg);
+  --edge: var(--urgent-edge);
+}
+
+.card[data-urgency='soon'] {
+  --fg: var(--soon-fg);
+  --tint: var(--soon-bg);
+  --edge: var(--soon-edge);
+}
+
+.card[data-urgency='upcoming'] {
+  --fg: var(--upcoming-fg);
+  --tint: var(--upcoming-bg);
+  --edge: var(--upcoming-edge);
+}
+
+.card[data-urgency='closed'] {
+  --fg: var(--closed-fg);
+  --tint: var(--closed-bg);
+  --edge: var(--closed-edge);
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.card-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  overflow-wrap: anywhere; /* long names and links wrap instead of breaking the layout */
+}
+
+.card[data-urgency='closed'] .card-name {
+  color: var(--muted);
+}
+
+.card-name a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.badge {
+  flex-shrink: 0;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--fg);
+  background: var(--tint);
+  border-radius: 999px;
+}
+
+.card-meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.card-notes {
+  margin: 0.5rem 0 0;
+  font-size: 0.9375rem;
+  white-space: pre-wrap; /* keep the line breaks you typed */
+}
