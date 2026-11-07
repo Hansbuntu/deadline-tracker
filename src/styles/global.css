@@ -1,68 +1,86 @@
-/* Design tokens: named colours and sizes used everywhere below.
-   Light values first; dark values swap in automatically when the phone or
-   laptop is set to dark mode. Components only ever use the names. */
+/* ==========================================================================
+   Design tokens: named colours, fonts and sizes used everywhere below.
+   Palette from the UI/UX Pro Max "Museum/Gallery" profile (gallery black on
+   white) plus the "Grant portal" deadline red and funding green.
+   Components only use the names, so dark mode just swaps the values.
+   ========================================================================== */
 :root {
   color-scheme: light dark;
 
-  --bg: #f7f5f1;
+  --bg: #fafafa;
   --surface: #ffffff;
-  --text: #1c1b19;
-  --muted: #625d55;
-  --border: #e2ddd4;
-  --field-bg: #ffffff;
-  --focus: #2f6fdf;
-  --danger: #b42318;
+  --surface-sunk: #f4f4f5;
+  --text: #09090b;
+  --muted: #52525b;
+  --border: #e4e4e7;
+  --primary: #18181b;
+  --on-primary: #ffffff;
+  --focus: #18181b;
+  --danger: #dc2626;
+  --backdrop: rgb(9 9 11 / 0.45);
 
-  /* Urgency: text colour, soft background, strong edge */
-  --urgent-fg: #9b1c1c;
-  --urgent-bg: #fde4e2;
-  --urgent-edge: #d93a3a;
-  --soon-fg: #8a3d0c;
-  --soon-bg: #fdead6;
-  --soon-edge: #e07b28;
-  --upcoming-fg: #6b5300;
-  --upcoming-bg: #fbf0c4;
-  --upcoming-edge: #cfa50c;
-  --later-fg: #2f5a43;
-  --later-bg: #e4efe8;
-  --later-edge: #79a88d;
-  --closed-fg: #625d55;
-  --closed-bg: #ebe8e3;
-  --closed-edge: #b8b2a8;
+  /* Card tones: text, soft background, strong left edge */
+  --urgent-fg: #b91c1c;
+  --urgent-bg: #fee2e2;
+  --urgent-edge: #dc2626;
+  --soon-fg: #9a3412;
+  --soon-bg: #ffedd5;
+  --soon-edge: #ea580c;
+  --upcoming-fg: #854d0e;
+  --upcoming-bg: #fef9c3;
+  --upcoming-edge: #ca8a04;
+  --later-fg: #166534;
+  --later-bg: #dcfce7;
+  --later-edge: #16a34a;
+  --neutral-fg: #52525b;
+  --neutral-bg: #f4f4f5;
+  --neutral-edge: #d4d4d8;
+
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-title: 'Newsreader', Georgia, 'Times New Roman', serif;
 
   --radius: 12px;
-  --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --radius-small: 8px;
+  --tap: 2.75rem; /* 44px: the smallest comfortable size for a thumb */
+  --quick: 150ms;
 }
 
+/* Dark mode: softer, lighter versions of each colour, not an inverted page. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #131211;
-    --surface: #1c1b19;
-    --text: #f2efea;
-    --muted: #a8a299;
-    --border: #34312c;
-    --field-bg: #141311;
-    --focus: #7aa7ff;
-    --danger: #ff8a80;
+    --bg: #09090b;
+    --surface: #18181b;
+    --surface-sunk: #111113;
+    --text: #fafafa;
+    --muted: #a1a1aa;
+    --border: #27272a;
+    --primary: #fafafa;
+    --on-primary: #09090b;
+    --focus: #fafafa;
+    --danger: #f87171;
+    --backdrop: rgb(0 0 0 / 0.6);
 
-    --urgent-fg: #ffb3ad;
-    --urgent-bg: #4a1c1b;
-    --urgent-edge: #f2645c;
-    --soon-fg: #ffc690;
-    --soon-bg: #46290f;
-    --soon-edge: #ec8a3c;
-    --upcoming-fg: #f0d572;
-    --upcoming-bg: #3f350c;
-    --upcoming-edge: #d6b230;
-    --later-fg: #a9d6ba;
-    --later-bg: #1c3126;
-    --later-edge: #5f9c78;
-    --closed-fg: #a8a299;
-    --closed-bg: #282623;
-    --closed-edge: #57534c;
+    --urgent-fg: #fca5a5;
+    --urgent-bg: #3b1515;
+    --urgent-edge: #ef4444;
+    --soon-fg: #fdba74;
+    --soon-bg: #3a1f0e;
+    --soon-edge: #f97316;
+    --upcoming-fg: #fde047;
+    --upcoming-bg: #332b0b;
+    --upcoming-edge: #eab308;
+    --later-fg: #86efac;
+    --later-bg: #0f2e1b;
+    --later-edge: #22c55e;
+    --neutral-fg: #a1a1aa;
+    --neutral-bg: #222225;
+    --neutral-edge: #3f3f46;
   }
 }
 
+/* ==========================================================================
+   Base
+   ========================================================================== */
 *,
 *::before,
 *::after {
@@ -73,27 +91,54 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font);
+  font-family: var(--font-body);
   font-size: 1rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Layout: one comfortable column, phone first. */
-.app {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 1.5rem 1rem 4rem;
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
-.app-header {
+/* Hidden on screen but still read out by screen readers. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==========================================================================
+   Page layout: one column, phone first
+   ========================================================================== */
+.app {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 6rem; /* bottom space so the toast never covers the last card */
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1.5rem;
 }
 
-.app-header h1 {
+.title {
   margin: 0;
-  font-size: 1.75rem;
-  letter-spacing: -0.02em;
+  font-family: var(--font-title);
+  font-size: 2.25rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
 }
 
 .tagline {
@@ -101,35 +146,446 @@ body {
   color: var(--muted);
 }
 
-h2 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 1rem;
-  font-size: 1.125rem;
+.empty {
+  margin: 0;
+  color: var(--muted);
 }
 
-.count {
-  font-size: 0.8125rem;
+.empty-start {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  padding: 2rem 1.25rem;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.empty-start-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+
+.alert {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  color: var(--urgent-fg);
+  background: var(--urgent-bg);
+  border-radius: var(--radius-small);
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: var(--tap);
+  padding: 0.5rem 1.125rem;
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  transition:
+    background-color var(--quick),
+    opacity var(--quick);
+}
+
+.button-primary {
+  color: var(--on-primary);
+  background: var(--primary);
+}
+
+.button-primary:hover {
+  opacity: 0.88;
+}
+
+.button-quiet {
+  color: var(--text);
+  background: transparent;
+  border-color: var(--border);
+}
+
+.button-quiet:hover {
+  background: var(--surface-sunk);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* Small text buttons on cards (Edit, Delete) with a full-size tap area. */
+.button-text {
+  min-height: var(--tap);
+  padding: 0 0.625rem;
+  font: inherit;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--muted);
-  background: var(--closed-bg);
-  border-radius: 999px;
-  padding: 0 0.5rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  transition:
+    color var(--quick),
+    background-color var(--quick);
 }
 
-section + section {
+.button-text:hover {
+  color: var(--text);
+  background: var(--surface-sunk);
+}
+
+.button-danger:hover {
+  color: var(--danger);
+}
+
+/* ==========================================================================
+   "Deadlines this week" banner
+   ========================================================================== */
+.banner {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  color: var(--urgent-fg);
+  background: var(--urgent-bg);
+  border-left: 4px solid var(--urgent-edge);
+  border-radius: var(--radius-small);
+}
+
+.banner-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.banner-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.banner-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.banner-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.banner-days {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Status tabs
+   ========================================================================== */
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.tab {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0 0.375rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--quick),
+    background-color var(--quick);
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab[aria-pressed='true'] {
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.tab-count {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   List and cards
+   ========================================================================== */
+.list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  /* Each card sets these from its tone (below). */
+  --fg: var(--later-fg);
+  --tint: var(--later-bg);
+  --edge: var(--later-edge);
+
+  padding: 1rem 1rem 0.375rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--edge);
+  border-radius: var(--radius);
+}
+
+.card[data-tone='urgent'] {
+  --fg: var(--urgent-fg);
+  --tint: var(--urgent-bg);
+  --edge: var(--urgent-edge);
+}
+
+.card[data-tone='soon'] {
+  --fg: var(--soon-fg);
+  --tint: var(--soon-bg);
+  --edge: var(--soon-edge);
+}
+
+.card[data-tone='upcoming'] {
+  --fg: var(--upcoming-fg);
+  --tint: var(--upcoming-bg);
+  --edge: var(--upcoming-edge);
+}
+
+.card[data-tone='applied'] {
+  --fg: var(--later-fg);
+  --tint: var(--later-bg);
+  --edge: var(--neutral-edge);
+}
+
+.card[data-tone='closed'],
+.card[data-tone='skipped'] {
+  --fg: var(--neutral-fg);
+  --tint: var(--neutral-bg);
+  --edge: var(--neutral-edge);
+}
+
+.card[data-tone='skipped'] .card-name,
+.card[data-tone='closed'] .card-name {
+  color: var(--muted);
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* Names in the serif, like an exhibition label. */
+.card-name {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere; /* long names and links wrap instead of breaking the layout */
+}
+
+.card-name a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.badge {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums; /* digits the same width, so numbers don't jiggle */
+  white-space: nowrap;
+  color: var(--fg);
+  background: var(--tint);
+  border-radius: 999px;
+}
+
+.card-meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.card-notes {
+  margin: 0.5rem 0 0;
+  font-size: 0.9375rem;
+  white-space: pre-wrap; /* keep the line breaks you typed */
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.375rem;
+}
+
+.card-actions-spacer {
+  flex: 1;
+}
+
+.status-select {
+  min-height: var(--tap);
+  padding: 0 2rem 0 0.75rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  background-color: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+/* "Closed" section: a built-in show/hide */
+.closed {
   margin-top: 2rem;
 }
 
-.panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.25rem 1rem;
+.closed summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--tap);
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none; /* we draw our own arrow below */
 }
 
-/* Form */
+.closed summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A chevron: points right when closed, down when open. */
+.closed summary::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: 0 0.25rem 0 0.125rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--quick);
+}
+
+.closed[open] summary::before {
+  transform: rotate(45deg);
+}
+
+.count {
+  padding: 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: var(--surface-sunk);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+/* ==========================================================================
+   Add/edit dialog: a bottom sheet on phones, a centred panel on wider screens
+   ========================================================================== */
+.sheet {
+  width: 100%;
+  max-width: 100%;
+  max-height: 92dvh;
+  margin: auto auto 0;
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: none;
+  border-radius: 16px 16px 0 0;
+}
+
+.sheet::backdrop {
+  background: var(--backdrop);
+}
+
+.sheet[open] {
+  animation: sheet-up 200ms ease-out;
+}
+
+@media (min-width: 40rem) {
+  .sheet {
+    max-width: 34rem;
+    margin: auto;
+    border-radius: 16px;
+  }
+}
+
+.sheet-body {
+  /* safe-area: keeps buttons clear of the iPhone home bar */
+  padding: 1.25rem 1rem calc(1rem + env(safe-area-inset-bottom));
+}
+
+.sheet-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* Pinned to the bottom of the panel, so Save is reachable even on short
+   screens or with the phone keyboard open. */
+.sheet-actions {
+  position: sticky;
+  bottom: calc(-1rem - env(safe-area-inset-bottom)); /* sit flush with the panel's bottom edge */
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin: 0 -1rem calc(-1rem - env(safe-area-inset-bottom));
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+}
+
+/* ==========================================================================
+   Form fields
+   ========================================================================== */
 .form {
   display: grid;
   gap: 1rem;
@@ -152,8 +608,8 @@ section + section {
 }
 
 .field label {
-  font-weight: 600;
   font-size: 0.9375rem;
+  font-weight: 600;
 }
 
 .optional {
@@ -164,14 +620,14 @@ section + section {
 .field input,
 .field textarea {
   width: 100%;
-  min-height: 2.75rem; /* 44px: comfortable for a thumb */
+  min-height: var(--tap);
   padding: 0.625rem 0.75rem;
   font: inherit;
   font-size: 1rem; /* 16px or more stops iPhones zooming in when you tap a field */
   color: var(--text);
-  background: var(--field-bg);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-small);
 }
 
 .field textarea {
@@ -189,131 +645,51 @@ section + section {
   color: var(--danger);
 }
 
-/* A visible outline when moving around with the keyboard. */
-:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+/* ==========================================================================
+   Toast ("Deleted X. Undo")
+   ========================================================================== */
+.toast-region {
+  position: fixed;
+  inset: auto 0 calc(1rem + env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem;
+  pointer-events: none; /* the empty area never blocks taps on the page */
 }
 
-.button {
-  justify-self: start;
-  min-height: 2.75rem;
-  padding: 0.625rem 1.25rem;
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 100%;
+  min-height: var(--tap);
+  padding: 0.375rem 0.5rem 0.375rem 1rem;
+  font-size: 0.9375rem;
+  color: var(--on-primary);
+  background: var(--primary);
+  border-radius: var(--radius-small);
+  pointer-events: auto;
+  animation: sheet-up 200ms ease-out;
+}
+
+.toast-undo {
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
   font: inherit;
-  font-weight: 600;
-  color: var(--bg);
-  background: var(--text);
-  border: none;
-  border-radius: 8px;
+  font-weight: 700;
+  color: inherit;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: 6px;
   cursor: pointer;
 }
 
-.button:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.alert {
-  margin: 0;
-  padding: 0.75rem 1rem;
-  color: var(--urgent-fg);
-  background: var(--urgent-bg);
-  border-radius: 8px;
-}
-
-/* List and cards */
-.list {
-  display: grid;
-  gap: 0.75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.empty {
-  color: var(--muted);
-}
-
-.card {
-  /* Each card sets these three from its urgency level (below). */
-  --fg: var(--later-fg);
-  --tint: var(--later-bg);
-  --edge: var(--later-edge);
-
-  padding: 0.875rem 1rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--edge);
-  border-radius: var(--radius);
-}
-
-.card[data-urgency='urgent'] {
-  --fg: var(--urgent-fg);
-  --tint: var(--urgent-bg);
-  --edge: var(--urgent-edge);
-}
-
-.card[data-urgency='soon'] {
-  --fg: var(--soon-fg);
-  --tint: var(--soon-bg);
-  --edge: var(--soon-edge);
-}
-
-.card[data-urgency='upcoming'] {
-  --fg: var(--upcoming-fg);
-  --tint: var(--upcoming-bg);
-  --edge: var(--upcoming-edge);
-}
-
-.card[data-urgency='closed'] {
-  --fg: var(--closed-fg);
-  --tint: var(--closed-bg);
-  --edge: var(--closed-edge);
-}
-
-.card-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.card-name {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  overflow-wrap: anywhere; /* long names and links wrap instead of breaking the layout */
-}
-
-.card[data-urgency='closed'] .card-name {
-  color: var(--muted);
-}
-
-.card-name a {
-  color: inherit;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-}
-
-.badge {
-  flex-shrink: 0;
-  padding: 0.125rem 0.625rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  white-space: nowrap;
-  color: var(--fg);
-  background: var(--tint);
-  border-radius: 999px;
-}
-
-.card-meta {
-  margin: 0.25rem 0 0;
-  font-size: 0.875rem;
-  color: var(--muted);
-}
-
-.card-notes {
-  margin: 0.5rem 0 0;
-  font-size: 0.9375rem;
-  white-space: pre-wrap; /* keep the line breaks you typed */
+/* Respect the phone or computer's "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

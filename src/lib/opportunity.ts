@@ -3,11 +3,28 @@
 // No React and no storage in here, so these rules can be tested on their own
 // and reused later by the email job (phase 3) and the import API (phase 4).
 
-import type { DateString, Opportunity, OpportunityDraft } from '../types.ts'
+import type { DateString, Opportunity, OpportunityDraft, Status } from '../types.ts'
 import { daysBetween, isValidDate } from './dates.ts'
+
+export const STATUS_LABELS: Record<Status, string> = {
+  todo: 'To do',
+  applied: 'Applied',
+  skipped: 'Skipped',
+}
 
 /** How close a deadline is. Each level gets its own colour on screen. */
 export type Urgency = 'closed' | 'urgent' | 'soon' | 'upcoming' | 'later'
+
+/**
+ * The colour a card gets. Urgency colours mean "act now", so they are only
+ * for things still to do. Applied and skipped items stay calm.
+ */
+export type Tone = Urgency | 'applied' | 'skipped'
+
+export function toneFor(opportunity: Opportunity, today: DateString): Tone {
+  if (opportunity.status !== 'todo') return opportunity.status
+  return urgencyFor(daysLeft(opportunity, today))
+}
 
 /** Days from today until the deadline. 0 = closes today, negative = already closed. */
 export function daysLeft(opportunity: Pick<Opportunity, 'deadline'>, today: DateString): number {
@@ -39,6 +56,9 @@ export function describeOpens(opensOn: DateString | null, today: DateString): st
   if (days === 1) return 'Opens tomorrow'
   return `Opens in ${days} days`
 }
+
+/** A blank form. */
+export const EMPTY_DRAFT: OpportunityDraft = { name: '', opensOn: '', deadline: '', link: '', notes: '' }
 
 /** Error messages for the form, one per field that has a problem. Empty = all good. */
 export type DraftErrors = Partial<Record<keyof OpportunityDraft, string>>
@@ -94,6 +114,58 @@ export function createOpportunity(
     notes: draft.notes.trim(),
     createdAt: timestamp,
     updatedAt: timestamp,
+  }
+}
+
+/** Apply edits from the form. Keeps the id, status and creation time. */
+export function updateOpportunity(
+  existing: Opportunity,
+  draft: OpportunityDraft,
+  now: Date = new Date(),
+): Opportunity {
+  const edited = createOpportunity(draft, now, existing.id)
+  return { ...edited, status: existing.status, createdAt: existing.createdAt }
+}
+
+export function withStatus(existing: Opportunity, status: Status, now: Date = new Date()): Opportunity {
+  return { ...existing, status, updatedAt: now.toISOString() }
+}
+
+/** The editable fields of an opportunity, to pre-fill the edit form. */
+export function toDraft(opportunity: Opportunity): OpportunityDraft {
+  const { name, opensOn, deadline, link, notes } = opportunity
+  return { name, opensOn: opensOn ?? '', deadline, link, notes }
+}
+
+/** For the banner: still-to-do items whose deadline is today or within 7 days, soonest first. */
+export function closingSoon(list: Opportunity[], today: DateString): Opportunity[] {
+  return list
+    .filter((o) => o.status === 'todo' && urgencyFor(daysLeft(o, today)) === 'urgent')
+    .sort((a, b) => (a.deadline < b.deadline ? -1 : a.deadline > b.deadline ? 1 : 0))
+}
+
+/** Which tab is showing: one status, or everything. */
+export type StatusFilter = Status | 'all'
+
+export function matchesFilter(opportunity: Opportunity, filter: StatusFilter): boolean {
+  return filter === 'all' || opportunity.status === filter
+}
+
+export function countByStatus(list: Opportunity[]): Record<StatusFilter, number> {
+  const counts: Record<StatusFilter, number> = { todo: 0, applied: 0, skipped: 0, all: list.length }
+  for (const o of list) counts[o.status] += 1
+  return counts
+}
+
+/** Split into still-open and already-closed, each in display order. */
+export function splitOpenAndClosed(
+  list: Opportunity[],
+  today: DateString,
+): { open: Opportunity[]; closed: Opportunity[] } {
+  const sorted = sortForDisplay(list, today)
+  return {
+    open: sorted.filter((o) => o.deadline >= today),
+    closed: sorted.filter((o) => o.deadline < today),
   }
 }
 

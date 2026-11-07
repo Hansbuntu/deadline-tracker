@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import type { Opportunity, OpportunityDraft } from '../types.ts'
 import {
+  closingSoon,
+  countByStatus,
   createOpportunity,
   daysLeft,
   describeDaysLeft,
   describeOpens,
+  matchesFilter,
   sortForDisplay,
+  splitOpenAndClosed,
+  toDraft,
+  toneFor,
+  updateOpportunity,
   urgencyFor,
   validateDraft,
+  withStatus,
 } from './opportunity.ts'
 
 const TODAY = '2026-11-07'
@@ -127,5 +135,97 @@ describe('sortForDisplay', () => {
     const list = [opp('B', '2026-12-01'), opp('A', '2026-11-20')]
     sortForDisplay(list, TODAY)
     expect(list.map((o) => o.name)).toEqual(['B', 'A'])
+  })
+})
+
+describe('toneFor', () => {
+  it('uses urgency colours only for things still to do', () => {
+    const soon = opp('Soon', '2026-11-09')
+    expect(toneFor(soon, TODAY)).toBe('urgent')
+    expect(toneFor({ ...soon, status: 'applied' }, TODAY)).toBe('applied')
+    expect(toneFor({ ...soon, status: 'skipped' }, TODAY)).toBe('skipped')
+  })
+})
+
+describe('updateOpportunity', () => {
+  it('applies edits but keeps id, status and creation time', () => {
+    const original = { ...opp('Old name', '2026-12-01'), status: 'applied' as const }
+    const edited = updateOpportunity(
+      original,
+      { ...toDraft(original), name: ' New name ', deadline: '2026-12-05' },
+      new Date('2026-11-07T09:00:00Z'),
+    )
+    expect(edited).toMatchObject({
+      id: original.id,
+      name: 'New name',
+      deadline: '2026-12-05',
+      status: 'applied',
+      createdAt: original.createdAt,
+      updatedAt: '2026-11-07T09:00:00.000Z',
+    })
+  })
+})
+
+describe('withStatus', () => {
+  it('changes the status and the updated time only', () => {
+    const original = opp('A', '2026-12-01')
+    const applied = withStatus(original, 'applied', new Date('2026-11-07T09:00:00Z'))
+    expect(applied).toEqual({ ...original, status: 'applied', updatedAt: '2026-11-07T09:00:00.000Z' })
+  })
+})
+
+describe('toDraft', () => {
+  it('round-trips through the form without changes', () => {
+    const original = createOpportunity(
+      draft({ opensOn: '2026-11-10', link: 'https://example.org', notes: 'CV' }),
+      new Date('2026-11-01T00:00:00Z'),
+      'x',
+    )
+    expect(updateOpportunity(original, toDraft(original), new Date('2026-11-01T00:00:00Z'))).toEqual(original)
+  })
+
+  it('turns a missing opening date into an empty field', () => {
+    expect(toDraft(opp('A', '2026-12-01')).opensOn).toBe('')
+  })
+})
+
+describe('closingSoon', () => {
+  it('lists to-do items closing today to 7 days from now, soonest first', () => {
+    const list = [
+      opp('Seven days', '2026-11-14'),
+      opp('Eight days', '2026-11-15'),
+      opp('Today', TODAY),
+      opp('Yesterday', '2026-11-06'),
+      { ...opp('Applied already', '2026-11-08'), status: 'applied' as const },
+    ]
+    expect(closingSoon(list, TODAY).map((o) => o.name)).toEqual(['Today', 'Seven days'])
+  })
+})
+
+describe('filters', () => {
+  const list = [
+    opp('A', '2026-12-01'),
+    { ...opp('B', '2026-12-01'), status: 'applied' as const },
+    { ...opp('C', '2026-12-01'), status: 'applied' as const },
+  ]
+
+  it('counts each status and the total', () => {
+    expect(countByStatus(list)).toEqual({ todo: 1, applied: 2, skipped: 0, all: 3 })
+  })
+
+  it('matches one status, or everything for "all"', () => {
+    expect(list.filter((o) => matchesFilter(o, 'applied')).map((o) => o.name)).toEqual(['B', 'C'])
+    expect(list.filter((o) => matchesFilter(o, 'all'))).toHaveLength(3)
+  })
+})
+
+describe('splitOpenAndClosed', () => {
+  it('treats a deadline of today as still open', () => {
+    const { open, closed } = splitOpenAndClosed(
+      [opp('Closed', '2026-11-06'), opp('Today', TODAY), opp('Later', '2026-12-01')],
+      TODAY,
+    )
+    expect(open.map((o) => o.name)).toEqual(['Today', 'Later'])
+    expect(closed.map((o) => o.name)).toEqual(['Closed'])
   })
 })

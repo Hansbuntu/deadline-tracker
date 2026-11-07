@@ -25,6 +25,12 @@ export async function saveOpportunity(opportunity: Opportunity): Promise<void> {
   writeAll(all)
 }
 
+/** Remove an opportunity. Removing one that doesn't exist does nothing. */
+export async function deleteOpportunity(id: string): Promise<void> {
+  const all = readAll()
+  writeAll(all.filter((saved) => saved.id !== id))
+}
+
 function readAll(): Opportunity[] {
   const raw = localStorage.getItem(STORAGE_KEY)
   if (raw === null) return [] // nothing saved yet
