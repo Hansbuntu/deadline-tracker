@@ -10,6 +10,7 @@ interface Props {
   onStatusChange: (opportunity: Opportunity, status: Status) => void
   onEdit: (opportunity: Opportunity) => void
   onDelete: (opportunity: Opportunity) => void
+  onDownloadIcs: (opportunity: Opportunity) => void
 }
 
 export function OpportunityList({ opportunities, today, emptyMessage, ...actions }: Props) {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { OpportunityDraft } from '../types.ts'
 import { createOpportunity } from './opportunity.ts'
-import { deleteOpportunity, listOpportunities, saveOpportunity } from './storage.ts'
+import { deleteOpportunity, listOpportunities, saveOpportunities, saveOpportunity } from './storage.ts'
 
 // Tests run in Node, not a browser, so there is no real localStorage.
 // This small stand-in behaves the same way and starts empty for every test.
@@ -43,6 +43,15 @@ describe('storage', () => {
     const saved = await listOpportunities()
     expect(saved).toHaveLength(1)
     expect(saved[0].status).toBe('applied')
+  })
+
+  it('saves several at once, adding new and replacing same-id ones', async () => {
+    const existing = createOpportunity({ ...draft, name: 'Existing' })
+    await saveOpportunity(existing)
+    const fresh = createOpportunity({ ...draft, name: 'Fresh' })
+    await saveOpportunities([{ ...existing, name: 'Existing (edited)' }, fresh])
+    const saved = await listOpportunities()
+    expect(saved.map((o) => o.name)).toEqual(['Existing (edited)', 'Fresh'])
   })
 
   it('deletes only the one you asked for', async () => {

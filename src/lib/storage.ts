@@ -25,6 +25,13 @@ export async function saveOpportunity(opportunity: Opportunity): Promise<void> {
   writeAll(all)
 }
 
+/** Save several at once (used when restoring a backup): add new ones, replace same-id ones. */
+export async function saveOpportunities(opportunities: Opportunity[]): Promise<void> {
+  const byId = new Map(readAll().map((saved) => [saved.id, saved]))
+  for (const opportunity of opportunities) byId.set(opportunity.id, opportunity)
+  writeAll([...byId.values()])
+}
+
 /** Remove an opportunity. Removing one that doesn't exist does nothing. */
 export async function deleteOpportunity(id: string): Promise<void> {
   const all = readAll()

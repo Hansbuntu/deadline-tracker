@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { ClosingSoonBanner } from './components/ClosingSoonBanner.tsx'
+import { DataTools } from './components/DataTools.tsx'
 import { OpportunityDialog } from './components/OpportunityDialog.tsx'
 import { OpportunityList } from './components/OpportunityList.tsx'
 import { StatusTabs } from './components/StatusTabs.tsx'
 import { Toast, type ToastMessage } from './components/Toast.tsx'
+import { createBackup, mergeOpportunities, parseBackup } from './lib/backup.ts'
+import { buildIcs } from './lib/calendar.ts'
 import { todayInGMT } from './lib/dates.ts'
+import { downloadFile, slugify } from './lib/files.ts'
 import {
   closingSoon,
   countByStatus,
@@ -17,13 +21,14 @@ import {
   withStatus,
   type StatusFilter,
 } from './lib/opportunity.ts'
-import { deleteOpportunity, listOpportunities, saveOpportunity } from './lib/storage.ts'
+import { deleteOpportunity, listOpportunities, saveOpportunities, saveOpportunity } from './lib/storage.ts'
 import type { Opportunity, OpportunityDraft, Status } from './types.ts'
 
 type LoadState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; message: string }
 type Editor = { mode: 'add' } | { mode: 'edit'; opportunity: Opportunity }
 
 const TOAST_MS = 6000 // long enough to reach the Undo button, short enough not to linger
+const MAX_BACKUP_BYTES = 5_000_000 // a real backup is a few kilobytes; refuse anything huge
 
 const EMPTY_TAB_MESSAGES: Record<StatusFilter, string> = {
   todo: 'Nothing on your to-do list.',
@@ -126,6 +131,44 @@ export default function App() {
     }
   }
 
+  // --- Calendar and backup
+
+  const openTodo = opportunities.filter((o) => o.status === 'todo' && o.deadline >= today)
+
+  function handleDownloadIcs(opportunity: Opportunity) {
+    downloadFile(`${slugify(opportunity.name)}.ics`, buildIcs([opportunity], today), 'text/calendar')
+  }
+
+  function handleExportCalendar() {
+    downloadFile(`deadlines-${today}.ics`, buildIcs(openTodo, today), 'text/calendar')
+    showToast(`Calendar file with ${openTodo.length} ${openTodo.length === 1 ? 'deadline' : 'deadlines'} downloaded`)
+  }
+
+  function handleBackup() {
+    downloadFile(`deadlines-backup-${today}.json`, createBackup(opportunities), 'application/json')
+    showToast('Backup downloaded')
+  }
+
+  async function handleRestore(file: File) {
+    if (file.size > MAX_BACKUP_BYTES) {
+      showToast('That file is too big to be a Deadlines backup.')
+      return
+    }
+    const parsed = parseBackup(await file.text())
+    if (!parsed.ok) {
+      showToast(`Nothing restored. ${parsed.error}`)
+      return
+    }
+    try {
+      const merge = mergeOpportunities(opportunities, parsed.opportunities)
+      await saveOpportunities(merge.toSave)
+      setOpportunities(await listOpportunities()) // show exactly what is stored now
+      showToast(`Restored: ${merge.added} added, ${merge.updated} updated, ${merge.unchanged} already up to date`)
+    } catch (error) {
+      showToast(errorText(error))
+    }
+  }
+
   // --- What to show
 
   const counts = countByStatus(opportunities)
@@ -176,8 +219,19 @@ export default function App() {
               onStatusChange={(o, status) => void handleStatusChange(o, status)}
               onEdit={(o) => setEditor({ mode: 'edit', opportunity: o })}
               onDelete={(o) => void handleDelete(o)}
+              onDownloadIcs={handleDownloadIcs}
             />
           </>
+        )}
+
+        {load.kind === 'ready' && (
+          <DataTools
+            exportCount={openTodo.length}
+            canBackUp={opportunities.length > 0}
+            onBackup={handleBackup}
+            onRestore={(file) => void handleRestore(file)}
+            onExportCalendar={handleExportCalendar}
+          />
         )}
       </main>
 

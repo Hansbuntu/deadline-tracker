@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { daysBetween, formatDate, isValidDate, todayInGMT } from './dates.ts'
+import { addDays, daysBetween, formatDate, isValidDate, todayInGMT } from './dates.ts'
+
+describe('addDays', () => {
+  it('moves forwards and backwards across month, year and leap days', () => {
+    expect(addDays('2026-11-07', 1)).toBe('2026-11-08')
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01')
+    expect(addDays('2028-02-28', 1)).toBe('2028-02-29')
+    expect(addDays('2026-11-07', -30)).toBe('2026-10-08')
+  })
+})
 
 describe('todayInGMT', () => {
   it('gives the GMT date', () => {

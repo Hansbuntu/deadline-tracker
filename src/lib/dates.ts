@@ -50,6 +50,11 @@ export function daysBetween(from: DateString, to: DateString): number {
   return (startOfDayMs(to) - startOfDayMs(from)) / MS_PER_DAY
 }
 
+/** The date `days` later (or earlier, if negative): addDays("2026-12-31", 1) is "2027-01-01". */
+export function addDays(value: DateString, days: number): DateString {
+  return new Date(startOfDayMs(value) + days * MS_PER_DAY).toISOString().slice(0, 10)
+}
+
 /** A date for people to read: "15 Dec 2026". */
 export function formatDate(value: DateString): string {
   return displayFormat.format(new Date(startOfDayMs(value)))
