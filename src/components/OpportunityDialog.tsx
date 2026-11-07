@@ -177,7 +177,9 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
             onChange={(e) => update('notes', e.target.value)}
             placeholder="Fee, what to send, who to ask for a reference…"
             rows={3}
+            {...a11yProps('notes')}
           />
+          <FieldError id={errorId('notes')} message={errors.notes} />
         </div>
 
         {saveError && (

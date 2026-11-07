@@ -57,6 +57,10 @@ export function describeOpens(opensOn: DateString | null, today: DateString): st
   return `Opens in ${days} days`
 }
 
+/** Same limits as the database (supabase/migrations/0001), so the form catches them first. */
+export const MAX_NAME_LENGTH = 300
+export const MAX_NOTES_LENGTH = 5000
+
 /** A blank form. */
 export const EMPTY_DRAFT: OpportunityDraft = { name: '', opensOn: '', deadline: '', link: '', notes: '' }
 
@@ -67,6 +71,10 @@ export function validateDraft(draft: OpportunityDraft): DraftErrors {
   const errors: DraftErrors = {}
 
   if (!draft.name.trim()) errors.name = 'Give it a name.'
+  else if (draft.name.trim().length > MAX_NAME_LENGTH)
+    errors.name = `Keep the name under ${MAX_NAME_LENGTH} characters.`
+
+  if (draft.notes.length > MAX_NOTES_LENGTH) errors.notes = `Notes can be up to ${MAX_NOTES_LENGTH} characters.`
 
   if (!draft.deadline) errors.deadline = 'Add the deadline date.'
   else if (!isValidDate(draft.deadline)) errors.deadline = 'That isn’t a real date.'

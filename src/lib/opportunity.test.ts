@@ -80,6 +80,13 @@ describe('validateDraft', () => {
     expect(validateDraft(draft({ deadline: '2026-02-30' })).deadline).toBeDefined()
   })
 
+  it('matches the database length limits', () => {
+    expect(validateDraft(draft({ name: 'x'.repeat(300) })).name).toBeUndefined()
+    expect(validateDraft(draft({ name: 'x'.repeat(301) })).name).toBeDefined()
+    expect(validateDraft(draft({ notes: 'x'.repeat(5000) })).notes).toBeUndefined()
+    expect(validateDraft(draft({ notes: 'x'.repeat(5001) })).notes).toBeDefined()
+  })
+
   it('rejects an opening date after the deadline', () => {
     expect(validateDraft(draft({ opensOn: '2026-12-02' })).opensOn).toBeDefined()
     expect(validateDraft(draft({ opensOn: '2026-12-01' })).opensOn).toBeUndefined()
