@@ -121,7 +121,11 @@ body {
 .app {
   max-width: 42rem;
   margin: 0 auto;
-  padding: 1.5rem 1rem 6rem; /* bottom space so the toast never covers the last card */
+  /* Installed on a phone, the app uses the whole screen. max(…, env(safe-area-inset-…))
+     keeps content clear of the notch, rounded corners and home bar.
+     Extra bottom space so the toast never covers the last card. */
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 6rem
+    max(1rem, env(safe-area-inset-left));
 }
 
 .topbar {
@@ -595,7 +599,7 @@ body {
    ========================================================================== */
 .signin {
   max-width: 28rem;
-  padding-top: 3rem;
+  padding-top: max(3rem, env(safe-area-inset-top));
 }
 
 .signin-header {
@@ -634,6 +638,36 @@ body {
 .button-text:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* "A new version is ready" bar, above whatever screen is showing */
+.update-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  max-width: 42rem;
+  margin: max(0.75rem, env(safe-area-inset-top)) auto 0;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  font-size: 0.9375rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.update-notice-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto; /* stays on the right, even when it wraps onto its own line */
+}
+
+@media (max-width: 43rem) {
+  .update-notice {
+    margin-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+  }
 }
 
 .setup-alert p {

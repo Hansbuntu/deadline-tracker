@@ -30,8 +30,10 @@ export function friendlyAuthError(error: AuthErrorLike | null | undefined): stri
 
   switch (error?.code) {
     case 'over_email_send_rate_limit':
+      // The whole project may only send a few emails per hour on Supabase's built-in service.
+      return 'The hourly limit on sign-in emails has been reached. Try again in up to an hour. Once you’re signed in on a device, you stay signed in.'
     case 'over_request_rate_limit':
-      return 'Too many sign-in emails were asked for recently. Wait a few minutes, then try again.'
+      return 'Too many attempts in a short time. Wait a few minutes, then try again.'
     case 'otp_expired':
       return 'That code or link has expired or was already used. Ask for a new email.'
     case 'signup_disabled':

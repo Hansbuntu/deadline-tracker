@@ -39,6 +39,13 @@ describe('friendlyAuthError', () => {
     ).toBe('For security, wait 47 seconds before asking for another email.')
   })
 
+  it('says the email limit lasts up to an hour, not a few minutes', () => {
+    expect(friendlyAuthError({ code: 'over_email_send_rate_limit', message: 'email rate limit exceeded' })).toMatch(
+      /up to an hour/,
+    )
+    expect(friendlyAuthError({ code: 'over_request_rate_limit' })).toMatch(/few minutes/)
+  })
+
   it('turns known codes into plain sentences', () => {
     expect(friendlyAuthError({ code: 'otp_expired' })).toMatch(/expired/)
     expect(friendlyAuthError({ code: 'signup_disabled' })).toMatch(/sign-ups are switched off/)

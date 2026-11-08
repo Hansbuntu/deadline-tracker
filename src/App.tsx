@@ -1,13 +1,24 @@
 // The gate: decides which screen to show. Not set up → a short note.
 // Checking the saved session → "Loading". Signed out → the sign-in screen.
-// Signed in → your tracker.
+// Signed in → your tracker. The update notice can appear above any of them.
 
+import type { ReactNode } from 'react'
 import { SignIn } from './components/SignIn.tsx'
+import { UpdateNotice } from './components/UpdateNotice.tsx'
 import { useSession } from './hooks/useSession.ts'
 import { isSupabaseConfigured, missingSettings } from './lib/supabase.ts'
 import { Tracker } from './Tracker.tsx'
 
 export default function App() {
+  return (
+    <>
+      <UpdateNotice />
+      <Screen />
+    </>
+  )
+}
+
+function Screen(): ReactNode {
   const session = useSession()
 
   if (!isSupabaseConfigured) {

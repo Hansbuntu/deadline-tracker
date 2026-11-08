@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/react" />
 
 // Tells TypeScript which environment variables exist (see .env.example).
 // They are optional: the app should explain what's missing instead of crashing.
