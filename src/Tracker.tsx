@@ -23,7 +23,13 @@ import {
   withStatus,
   type StatusFilter,
 } from './lib/opportunity.ts'
-import { deleteOpportunity, listOpportunities, saveOpportunities, saveOpportunity } from './lib/storage.ts'
+import {
+  copyLocalListToAccount,
+  deleteOpportunity,
+  listOpportunities,
+  saveOpportunities,
+  saveOpportunity,
+} from './lib/storage.ts'
 import type { Opportunity, OpportunityDraft, Status } from './types.ts'
 
 type LoadState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; message: string }
@@ -53,16 +59,6 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
   const toastCount = useRef(0)
   const today = todayInGMT()
 
-  // useEffect runs code after the page first appears: here, load saved data once.
-  useEffect(() => {
-    listOpportunities()
-      .then((saved) => {
-        setOpportunities(saved)
-        setLoad({ kind: 'ready' })
-      })
-      .catch((error: unknown) => setLoad({ kind: 'error', message: errorText(error) }))
-  }, [])
-
   // Hide the message after a few seconds. A new message restarts the timer,
   // and it waits while you're pointing at or tabbed onto it.
   useEffect(() => {
@@ -76,6 +72,44 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
     setToastHeld(false)
     setToast({ id: toastCount.current, text, undo })
   }
+
+  // useEffect runs code after the page first appears: here, load your list once.
+  useEffect(() => {
+    let cancelled = false // if the screen closes mid-load, don't update it
+    async function load() {
+      try {
+        // One-time move from phase 1: anything this browser kept locally goes into your account.
+        const copied = await copyLocalListToAccount()
+        const saved = await listOpportunities()
+        if (cancelled) return
+        setOpportunities(saved)
+        setLoad({ kind: 'ready' })
+        const moved = copied ? copied.added + copied.updated : 0
+        if (moved > 0) showToast(`Copied ${moved} ${moved === 1 ? 'item' : 'items'} from this browser to your account`)
+      } catch (error) {
+        if (!cancelled) setLoad({ kind: 'error', message: errorText(error) })
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Coming back to this tab (say, after adding something on your phone)
+  // quietly fetches the latest list, so every device stays in step.
+  useEffect(() => {
+    function refreshWhenVisible() {
+      if (document.visibilityState !== 'visible') return
+      listOpportunities()
+        .then(setOpportunities)
+        .catch(() => {
+          // Offline or similar: keep showing what we have; the next action will report any problem.
+        })
+    }
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => document.removeEventListener('visibilitychange', refreshWhenVisible)
+  }, [])
 
   function replaceInList(updated: Opportunity) {
     setOpportunities((current) => current.map((o) => (o.id === updated.id ? updated : o)))

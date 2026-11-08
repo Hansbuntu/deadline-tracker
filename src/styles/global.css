@@ -636,6 +636,20 @@ body {
   cursor: default;
 }
 
+.setup-alert p {
+  margin: 0;
+}
+
+.setup-alert ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.setup-alert code {
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
 .account-bar {
   display: flex;
   flex-wrap: wrap;

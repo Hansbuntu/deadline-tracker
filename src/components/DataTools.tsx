@@ -20,8 +20,8 @@ export function DataTools({ exportCount, canBackUp, onBackup, onRestore, onExpor
         Backup and calendar
       </h2>
       <p className="empty">
-        For now your list is saved in this browser only. Download a backup now and then; you can also use it to
-        move your list to another device. Restoring never deletes anything: it adds what’s missing and keeps the
+        Your list is saved to your account and shows on every device you sign in on. A backup file is still a good
+        idea now and then, as your own copy. Restoring never deletes anything: it adds what’s missing and keeps the
         most recently edited version of each item.
       </p>
       <div className="data-tools-buttons">

@@ -4,20 +4,34 @@
 
 import { SignIn } from './components/SignIn.tsx'
 import { useSession } from './hooks/useSession.ts'
-import { isSupabaseConfigured } from './lib/supabase.ts'
+import { isSupabaseConfigured, missingSettings } from './lib/supabase.ts'
 import { Tracker } from './Tracker.tsx'
 
 export default function App() {
   const session = useSession()
 
   if (!isSupabaseConfigured) {
+    // Settings are built into the site when it's built, so adding them later
+    // only takes effect after a rebuild (a restart locally, a redeploy on Vercel).
     return (
       <div className="app signin">
         <h1 className="title">Deadlines</h1>
-        <p className="alert" role="alert">
-          This copy of the app isn’t connected to its database yet. Fill in .env.local (see .env.example), then
-          restart the app.
-        </p>
+        <div className="alert setup-alert" role="alert">
+          <p>This copy of the app isn’t connected to its database yet. Missing:</p>
+          <ul>
+            {missingSettings.map((name) => (
+              <li key={name}>
+                <code>{name}</code>
+              </li>
+            ))}
+          </ul>
+          <p>
+            <strong>On Vercel:</strong> add them in Project Settings → Environment Variables (for Production), then
+            redeploy.
+            <br />
+            <strong>On your laptop:</strong> put them in .env.local (see .env.example), then restart npm run dev.
+          </p>
+        </div>
       </div>
     )
   }

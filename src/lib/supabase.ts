@@ -7,7 +7,12 @@ import { createClient } from '@supabase/supabase-js'
 const url = import.meta.env.VITE_SUPABASE_URL
 const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
 
-/** False until .env.local is filled in, so the app can say what's missing. */
-export const isSupabaseConfigured = Boolean(url && publishableKey)
+/** The names of any settings that are missing, so the app can say exactly what to fix. */
+export const missingSettings = [
+  !url && 'VITE_SUPABASE_URL',
+  !publishableKey && 'VITE_SUPABASE_PUBLISHABLE_KEY',
+].filter((name): name is string => Boolean(name))
+
+export const isSupabaseConfigured = missingSettings.length === 0
 
 export const supabase = url && publishableKey ? createClient(url, publishableKey) : null
