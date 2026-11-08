@@ -2,7 +2,8 @@
 // "add to Google Calendar" links. Pure functions, so every rule is tested.
 
 import type { DateString, Opportunity } from '../types.ts'
-import { addDays } from './dates.ts'
+import { addDays, formatTimeGMT } from './dates.ts'
+import { closingMoment, describeClosingTime, effectiveDeadline } from './opportunity.ts'
 
 /** Reminder days before a deadline, as agreed in the brief. */
 export const REMINDER_DAYS = [30, 14, 7, 1] as const
@@ -71,7 +72,16 @@ function describeReminder(name: string, daysBefore: number): string {
 }
 
 function eventDescription(opportunity: Opportunity): string {
-  return [opportunity.link, opportunity.notes].filter(Boolean).join('\n\n')
+  const closes = describeClosingTime(opportunity)
+  return [closes && `Closes at ${closes}`, opportunity.link, opportunity.notes].filter(Boolean).join('\n\n')
+}
+
+/** "Deadline: Gasworks" or, with a closing time, "Deadline: Gasworks (closes 16:00 GMT)". */
+function deadlineTitle(opportunity: Opportunity): string {
+  const moment = closingMoment(opportunity)
+  return moment
+    ? `Deadline: ${opportunity.name} (closes ${formatTimeGMT(moment)} GMT)`
+    : `Deadline: ${opportunity.name}`
 }
 
 function alarm(trigger: string, description: string): string[] {
@@ -111,7 +121,9 @@ function allDayEvent(options: {
 
 /** The calendar events for one opportunity: its deadline, plus its opening day if that's still ahead. */
 function eventsFor(opportunity: Opportunity, today: DateString, stamp: string): string[] {
-  const { id, name, deadline, opensOn, link } = opportunity
+  const { id, name, opensOn, link } = opportunity
+  // The GMT date it closes: a late Los Angeles deadline lands on the next day here.
+  const deadline = effectiveDeadline(opportunity)
   const description = eventDescription(opportunity)
 
   // Reminders whose moment has already passed would never fire, so leave them out.
@@ -122,7 +134,7 @@ function eventsFor(opportunity: Opportunity, today: DateString, stamp: string): 
   const lines = allDayEvent({
     uid: `${id}-deadline@deadline-tracker`, // the same id every time, so re-exporting updates the event
     date: deadline,
-    summary: `Deadline: ${name}`,
+    summary: deadlineTitle(opportunity),
     description,
     url: link,
     stamp,
@@ -166,8 +178,8 @@ export function buildIcs(opportunities: Opportunity[], today: DateString, now: D
  * Google's link format has no field for reminders, so your Google defaults apply.
  */
 export function googleCalendarUrl(opportunity: Opportunity, which: 'deadline' | 'opens' = 'deadline'): string {
-  const date = which === 'opens' && opportunity.opensOn ? opportunity.opensOn : opportunity.deadline
-  const title = which === 'opens' ? `Applications open: ${opportunity.name}` : `Deadline: ${opportunity.name}`
+  const date = which === 'opens' && opportunity.opensOn ? opportunity.opensOn : effectiveDeadline(opportunity)
+  const title = which === 'opens' ? `Applications open: ${opportunity.name}` : deadlineTitle(opportunity)
   const params = new URLSearchParams({
     action: 'TEMPLATE',
     text: title,

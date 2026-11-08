@@ -12,7 +12,9 @@ export default defineConfig({
     VitePWA({
       // A new version waits until you tap "Update", so it never reloads mid-typing.
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
+      // The globPatterns below already cache every icon once; listing them again
+      // here (or letting the plugin add the manifest icons) cached 7 files twice.
+      includeManifestIcons: false,
 
       // The manifest: what the phone shows when you install the app.
       manifest: {

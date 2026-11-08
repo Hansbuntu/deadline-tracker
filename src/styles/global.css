@@ -12,11 +12,14 @@
   --surface-sunk: #f4f4f5;
   --text: #09090b;
   --muted: #52525b;
-  --border: #e4e4e7;
+  --border: #e4e4e7; /* hairlines: dividers and decoration */
+  --border-strong: #8a8a93; /* outlines of things you can type in or press: 3:1 or more (WCAG 1.4.11) */
+  --placeholder: #71717a; /* hint text inside empty fields: 4.5:1 or more */
   --primary: #18181b;
   --on-primary: #ffffff;
   --focus: #18181b;
   --danger: #dc2626;
+  --on-danger: #ffffff;
   --backdrop: rgb(9 9 11 / 0.45);
 
   /* Card tones: text, soft background, strong left edge */
@@ -54,10 +57,13 @@
     --text: #fafafa;
     --muted: #a1a1aa;
     --border: #27272a;
+    --border-strong: #6b6b74;
+    --placeholder: #8b8b94;
     --primary: #fafafa;
     --on-primary: #09090b;
     --focus: #fafafa;
     --danger: #f87171;
+    --on-danger: #09090b;
     --backdrop: rgb(0 0 0 / 0.6);
 
     --urgent-fg: #fca5a5;
@@ -95,6 +101,13 @@ body {
   font-size: 1rem;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  accent-color: var(--primary); /* the browser's own controls (date pickers, checkboxes) use the palette */
+}
+
+/* Selected text: gallery black (or white in dark mode), not the browser's default blue. */
+::selection {
+  color: var(--on-primary);
+  background: var(--primary);
 }
 
 :focus-visible {
@@ -232,6 +245,7 @@ body {
 
 /* Small text buttons on cards (Calendar, Edit, Delete) with a full-size tap area. */
 .button-text {
+  min-width: var(--tap);
   min-height: var(--tap);
   padding: 0 0.5rem;
   font: inherit;
@@ -252,60 +266,52 @@ body {
   background: var(--surface-sunk);
 }
 
-.button-danger:hover {
-  color: var(--danger);
-}
-
 /* ==========================================================================
-   "Deadlines this week" banner
+   "Next 7 days" line: calm, until something closes today or tomorrow
    ========================================================================== */
-.banner {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  color: var(--urgent-fg);
-  background: var(--urgent-bg);
-  border-left: 4px solid var(--urgent-edge);
-  border-radius: var(--radius-small);
+.summary {
+  margin: 0 0 1.25rem;
+  font-size: 0.9375rem;
+  color: var(--muted);
 }
 
-.banner-title {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.banner-list {
-  display: grid;
-  gap: 0.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.banner-list li {
+.summary-line {
   display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
 }
 
-.banner-name {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.banner-days {
-  flex-shrink: 0;
+.summary a {
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.summary-imminent {
+  color: var(--text);
+}
+
+.summary-dot {
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--danger);
+  border-radius: 50%;
+}
+
+.summary-more {
+  color: var(--muted);
 }
 
 /* ==========================================================================
-   Status tabs
+   Status tabs and the colour legend
    ========================================================================== */
 .tabs {
   display: flex;
   gap: 0.25rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   padding: 0.25rem;
   background: var(--surface-sunk);
   border: 1px solid var(--border);
@@ -316,7 +322,7 @@ body {
   flex: 1 1 0;
   min-width: 0;
   min-height: var(--tap);
-  padding: 0 0.375rem;
+  padding: 0 0.25rem;
   font: inherit;
   font-size: 0.875rem;
   font-weight: 600;
@@ -338,7 +344,7 @@ body {
 .tab[aria-pressed='true'] {
   color: var(--text);
   background: var(--surface);
-  box-shadow: 0 0 0 1px var(--border);
+  box-shadow: 0 0 0 1px var(--border-strong); /* a visible edge, not just a slightly lighter pill */
 }
 
 .tab-count {
@@ -347,69 +353,73 @@ body {
   color: var(--muted);
 }
 
+/* Which dot colour each urgency uses. The words always say the same thing. */
+[data-tone='urgent'] {
+  --dot: var(--urgent-edge);
+}
+
+[data-tone='soon'] {
+  --dot: var(--soon-edge);
+}
+
+[data-tone='upcoming'] {
+  --dot: var(--upcoming-edge);
+}
+
+[data-tone='later'] {
+  --dot: var(--later-edge);
+}
+
+[data-tone='closed'] {
+  --dot: var(--neutral-edge);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.legend-item::before {
+  content: '';
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--dot);
+  border-radius: 50%;
+}
+
 /* ==========================================================================
-   List and cards
+   The list: rows like gallery wall labels, divided by hairlines
    ========================================================================== */
 .list {
-  display: grid;
-  gap: 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--border);
+}
+
+.list-empty {
+  padding: 1rem 0;
 }
 
 .card {
-  /* Each card sets these from its tone (below). */
-  --fg: var(--later-fg);
-  --tint: var(--later-bg);
-  --edge: var(--later-edge);
-
-  padding: 1rem 1rem 0.375rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--edge);
-  border-radius: var(--radius);
-}
-
-.card[data-tone='urgent'] {
-  --fg: var(--urgent-fg);
-  --tint: var(--urgent-bg);
-  --edge: var(--urgent-edge);
-}
-
-.card[data-tone='soon'] {
-  --fg: var(--soon-fg);
-  --tint: var(--soon-bg);
-  --edge: var(--soon-edge);
-}
-
-.card[data-tone='upcoming'] {
-  --fg: var(--upcoming-fg);
-  --tint: var(--upcoming-bg);
-  --edge: var(--upcoming-edge);
-}
-
-.card[data-tone='applied'] {
-  --fg: var(--later-fg);
-  --tint: var(--later-bg);
-  --edge: var(--neutral-edge);
-}
-
-.card[data-tone='closed'],
-.card[data-tone='skipped'] {
-  --fg: var(--neutral-fg);
-  --tint: var(--neutral-bg);
-  --edge: var(--neutral-edge);
-}
-
-.card[data-tone='skipped'] .card-name,
-.card[data-tone='closed'] .card-name {
-  color: var(--muted);
+  padding: 1rem 0 0.875rem;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: 1rem; /* when the "next 7 days" link jumps here */
 }
 
 .card-head {
   display: flex;
-  align-items: flex-start;
+  align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
 }
@@ -422,25 +432,68 @@ body {
   font-weight: 600;
   line-height: 1.25;
   overflow-wrap: anywhere; /* long names and links wrap instead of breaking the layout */
+  text-wrap: pretty;
+}
+
+.card-name:focus-visible {
+  outline-offset: 4px;
+  border-radius: 2px;
 }
 
 .card-name a {
   color: inherit;
+  text-decoration-color: var(--border-strong);
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }
 
-.badge {
+.card-name a:hover {
+  text-decoration-color: currentColor;
+}
+
+.card[data-tone='closed'] .card-name,
+.card[data-tone='skipped'] .card-name {
+  color: var(--muted);
+}
+
+/* The status on the right: a small coloured dot and words. */
+.status {
+  display: inline-flex;
   flex-shrink: 0;
-  margin-top: 0.125rem;
-  padding: 0.125rem 0.625rem;
+  align-items: center;
+  gap: 0.375rem;
   font-size: 0.8125rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums; /* digits the same width, so numbers don't jiggle */
   white-space: nowrap;
-  color: var(--fg);
-  background: var(--tint);
+  color: var(--text);
+}
+
+.status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--dot, var(--neutral-edge));
+  border-radius: 50%;
+}
+
+.card[data-tone='closed'] .status {
+  color: var(--muted);
+}
+
+/* Today and tomorrow: the one strong signal on the screen. */
+.status-imminent {
+  padding: 0.125rem 0.625rem;
+  color: var(--on-danger);
+  background: var(--danger);
   border-radius: 999px;
+}
+
+.status-applied svg {
+  color: var(--later-fg);
+}
+
+.status-skipped {
+  color: var(--muted);
 }
 
 .card-meta {
@@ -450,6 +503,7 @@ body {
 }
 
 .card-notes {
+  max-width: 60ch;
   margin: 0.5rem 0 0;
   font-size: 0.9375rem;
   white-space: pre-wrap; /* keep the line breaks you typed */
@@ -457,63 +511,91 @@ body {
 
 .card-actions {
   display: flex;
-  flex-wrap: wrap; /* on very narrow phones the buttons wrap instead of overflowing */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.625rem;
+}
+
+.card-question {
+  margin-right: 0.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.card-more-toggle {
+  display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  margin-top: 0.5rem;
-  border-top: 1px solid var(--border);
-  padding-top: 0.375rem;
+  margin-left: auto;
 }
 
-.card-actions-spacer {
-  flex: 1;
-}
-
-.status-select {
-  min-height: var(--tap);
-  padding: 0 2rem 0 0.75rem;
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
+.card-more-toggle[aria-expanded='true'] {
   color: var(--text);
-  background-color: var(--surface-sunk);
-  border: 1px solid var(--border);
+  background: var(--surface-sunk);
+}
+
+.chevron-icon {
+  transition: transform var(--quick);
+}
+
+.card-more-toggle[aria-expanded='true'] .chevron-icon {
+  transform: rotate(180deg);
+}
+
+/* "More": the less frequent actions, one per row, Delete set apart. */
+.card-more {
+  display: grid;
+  margin-top: 0.5rem;
+  padding: 0.25rem;
+  background: var(--surface-sunk);
   border-radius: var(--radius-small);
+}
+
+.menu-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5rem;
+  min-height: var(--tap);
+  padding: 0.625rem 0.75rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
 }
 
-.button-text[aria-expanded='true'] {
-  color: var(--text);
-  background: var(--surface-sunk);
-}
-
-/* Calendar options under a card */
-.card-calendar {
-  margin: 0 0 0.625rem;
-  padding: 0.75rem;
-  background: var(--surface-sunk);
-  border-radius: var(--radius-small);
-}
-
-.card-calendar-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.card-calendar-buttons .button {
+.menu-item:hover {
   background: var(--surface);
 }
 
-.card-calendar-hint {
-  margin: 0.5rem 0 0;
+.menu-item-note {
   font-size: 0.8125rem;
   color: var(--muted);
 }
 
-/* "Closed" section: a built-in show/hide */
+.menu-item-danger {
+  margin-top: 0.25rem;
+  color: var(--danger);
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 6px 6px;
+}
+
+.menu-hint {
+  margin: 0;
+  padding: 0 0.75rem 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* "Deadline passed": a built-in show/hide */
 .closed {
-  margin-top: 2rem;
+  margin-top: 1.5rem;
 }
 
 .closed summary {
@@ -521,7 +603,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   min-height: var(--tap);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   font-weight: 600;
   color: var(--muted);
   cursor: pointer;
@@ -548,6 +630,11 @@ body {
   transform: rotate(45deg);
 }
 
+.closed-note {
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
 .count {
   padding: 0 0.5rem;
   font-size: 0.8125rem;
@@ -560,7 +647,7 @@ body {
 }
 
 /* ==========================================================================
-   Backup and calendar section at the bottom of the page
+   Calendar and backup, at the bottom of the page
    ========================================================================== */
 .data-tools {
   display: grid;
@@ -577,11 +664,6 @@ body {
   font-weight: 600;
 }
 
-.data-tools .empty {
-  font-size: 0.9375rem;
-  max-width: 38rem; /* comfortable line length */
-}
-
 .data-tools-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -589,9 +671,52 @@ body {
 }
 
 .data-tools-hint {
+  max-width: 38rem; /* comfortable line length */
   margin: 0;
   font-size: 0.8125rem;
   color: var(--muted);
+}
+
+.data-tools-compact {
+  margin: 1.5rem 0 0;
+  font-size: 0.9375rem;
+  color: var(--muted);
+}
+
+/* A button that reads as a link, for small in-sentence actions. */
+.button-link {
+  padding: 0;
+  font: inherit;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* On phones, Add floats bottom-right, where a thumb can reach it. */
+.add-fab {
+  display: none;
+}
+
+@media (max-width: 39.99rem) {
+  .add-top {
+    display: none;
+  }
+
+  .add-fab {
+    position: fixed;
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    z-index: 10;
+    display: inline-flex;
+    min-height: 3rem;
+    padding: 0 1.25rem;
+    border-radius: 999px;
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+  }
 }
 
 /* ==========================================================================
@@ -670,6 +795,18 @@ body {
   }
 }
 
+.load-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.load-error p {
+  margin: 0;
+}
+
 .setup-alert p {
   margin: 0;
 }
@@ -722,7 +859,7 @@ body {
 }
 
 .sheet[open] {
-  animation: sheet-up 200ms ease-out;
+  animation: sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1); /* a quick start that settles gently */
 }
 
 @media (min-width: 40rem) {
@@ -757,6 +894,34 @@ body {
   padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
   background: var(--surface);
   border-top: 1px solid var(--border);
+}
+
+/* "Discard your changes?" asked inside the form instead of a browser pop-up. */
+.sheet-actions-confirm {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sheet-confirm-text {
+  flex: 1 1 100%;
+  margin: 0;
+  font-weight: 600;
+}
+
+@media (min-width: 30rem) {
+  .sheet-confirm-text {
+    flex-basis: auto;
+    margin-right: auto;
+  }
+}
+
+.button-danger-solid {
+  color: var(--on-danger);
+  background: var(--danger);
+}
+
+.button-danger-solid:hover {
+  opacity: 0.88;
 }
 
 @keyframes sheet-up {
@@ -809,8 +974,13 @@ body {
   font-size: 1rem; /* 16px or more stops iPhones zooming in when you tap a field */
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-small);
+}
+
+::placeholder {
+  color: var(--placeholder);
+  opacity: 1; /* Firefox fades placeholders by default */
 }
 
 .field textarea {
@@ -828,6 +998,38 @@ body {
   color: var(--danger);
 }
 
+/* Helpful notes under a field: the time zone conversion, a passed date. */
+.field-hint {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.field-hint-warning {
+  color: var(--soon-fg);
+}
+
+.field-select {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+}
+
+.form-note {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text);
+  background: var(--surface-sunk);
+  border-radius: var(--radius-small);
+}
+
 /* ==========================================================================
    Toast ("Deleted X. Undo")
    ========================================================================== */
@@ -838,6 +1040,13 @@ body {
   justify-content: center;
   padding: 0 1rem;
   pointer-events: none; /* the empty area never blocks taps on the page */
+}
+
+/* On phones the toast sits above the floating Add button. */
+@media (max-width: 39.99rem) {
+  .toast-region {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
 }
 
 .toast {
@@ -852,12 +1061,18 @@ body {
   background: var(--primary);
   border-radius: var(--radius-small);
   pointer-events: auto;
-  animation: sheet-up 200ms ease-out;
+  animation: sheet-up 220ms cubic-bezier(0.16, 1, 0.3, 1); /* a quick start that settles gently */
+}
+
+/* The toast is dark on light (and light on dark), so its focus ring uses the
+   toast's own text colour; the page's focus colour would vanish against it. */
+.toast :focus-visible {
+  outline-color: var(--on-primary);
 }
 
 .toast-undo {
-  min-height: 2.25rem;
-  padding: 0 0.75rem;
+  min-height: var(--tap);
+  padding: 0 0.875rem;
   font: inherit;
   font-weight: 700;
   color: inherit;
@@ -867,12 +1082,22 @@ body {
   cursor: pointer;
 }
 
-/* Respect the phone or computer's "reduce motion" setting. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Respect the phone or computer's "reduce motion" setting: nothing slides or
+   turns, but panels and messages still fade in briefly, so you notice them. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation: none !important;
-    transition: none !important;
+  .sheet[open],
+  .toast {
+    animation: fade-in 120ms ease-out;
+  }
+
+  .chevron-icon,
+  .closed summary::before {
+    transition: none;
   }
 }

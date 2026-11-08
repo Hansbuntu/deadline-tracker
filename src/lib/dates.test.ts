@@ -1,5 +1,62 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, daysBetween, formatDate, isValidDate, todayInGMT } from './dates.ts'
+import {
+  addDays,
+  daysBetween,
+  formatDate,
+  formatTimeGMT,
+  isValidDate,
+  isValidTime,
+  isValidTimeZone,
+  todayInGMT,
+  zonedTimeToUtc,
+} from './dates.ts'
+
+describe('zonedTimeToUtc', () => {
+  const iso = (d: Date) => d.toISOString().slice(0, 16)
+
+  it('converts a winter Paris closing time to GMT (one hour behind)', () => {
+    expect(iso(zonedTimeToUtc('2026-12-01', '17:00', 'Europe/Paris'))).toBe('2026-12-01T16:00')
+  })
+
+  it('handles summer time (Paris is two hours ahead in July)', () => {
+    expect(iso(zonedTimeToUtc('2026-07-01', '17:00', 'Europe/Paris'))).toBe('2026-07-01T15:00')
+  })
+
+  it('moves to the next GMT day for late American deadlines', () => {
+    expect(iso(zonedTimeToUtc('2026-12-01', '23:59', 'America/New_York'))).toBe('2026-12-02T04:59')
+    expect(iso(zonedTimeToUtc('2026-12-01', '23:59', 'America/Los_Angeles'))).toBe('2026-12-02T07:59')
+  })
+
+  it('leaves Accra and GMT times unchanged', () => {
+    expect(iso(zonedTimeToUtc('2026-12-01', '16:00', 'Africa/Accra'))).toBe('2026-12-01T16:00')
+    expect(iso(zonedTimeToUtc('2026-12-01', '16:00', 'Etc/GMT'))).toBe('2026-12-01T16:00')
+  })
+
+  it('copes with a time that is skipped when clocks go forward', () => {
+    // 02:30 doesn't exist in Paris on 29 Mar 2026; any sensible nearby moment will do.
+    const result = zonedTimeToUtc('2026-03-29', '02:30', 'Europe/Paris')
+    expect(Number.isNaN(result.getTime())).toBe(false)
+    expect(iso(result).slice(0, 10)).toBe('2026-03-29')
+  })
+})
+
+describe('time helpers', () => {
+  it('checks 24-hour times', () => {
+    expect(isValidTime('00:00')).toBe(true)
+    expect(isValidTime('23:59')).toBe(true)
+    expect(isValidTime('24:00')).toBe(false)
+    expect(isValidTime('9:30')).toBe(false)
+  })
+
+  it('checks time zone names', () => {
+    expect(isValidTimeZone('Europe/Paris')).toBe(true)
+    expect(isValidTimeZone('Mars/Olympus')).toBe(false)
+  })
+
+  it('writes GMT clock times', () => {
+    expect(formatTimeGMT(new Date('2026-12-02T07:59:00Z'))).toBe('07:59')
+  })
+})
 
 describe('addDays', () => {
   it('moves forwards and backwards across month, year and leap days', () => {

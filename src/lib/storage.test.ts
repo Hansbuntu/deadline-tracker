@@ -55,7 +55,16 @@ function fakeLocalStorage(): Storage {
   }
 }
 
-const draft: OpportunityDraft = { name: 'Gasworks', opensOn: null, deadline: '2026-12-01', link: '', notes: '' }
+const draft: OpportunityDraft = {
+  name: 'Gasworks',
+  opensOn: null,
+  deadline: '2026-12-01',
+  closingTime: '',
+  timeZone: '',
+  link: '',
+  notes: '',
+  hearBackBy: '',
+}
 
 beforeEach(() => {
   db.rows = []
@@ -127,6 +136,9 @@ describe('copyLocalListToAccount', () => {
       opens_on: null,
       deadline: older.deadline,
       link: '',
+      closing_time: null,
+      time_zone: null,
+      hear_back_by: null,
       status: 'todo',
       notes: '',
       created_at: older.createdAt,

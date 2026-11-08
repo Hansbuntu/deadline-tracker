@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { sendSignInEmail, verifyEmailCode } from '../lib/auth.ts'
 import { authErrorFromUrl, isPlausibleCode, isPlausibleEmail, normaliseCode } from '../lib/authMessages.ts'
 
@@ -20,6 +20,18 @@ export function SignIn() {
       window.history.replaceState(null, '', window.location.pathname)
     }
   }, [])
+
+  // When the step changes, move focus to that step's field, so keyboard and
+  // screen-reader users land where they need to type (not at the top of the page).
+  // Skipped on first load, so the phone keyboard doesn't pop up uninvited.
+  const firstStep = useRef(true)
+  useEffect(() => {
+    if (firstStep.current) {
+      firstStep.current = false
+      return
+    }
+    document.getElementById(`${ids}-${step}`)?.focus()
+  }, [step, ids])
 
   // Count down the "Send again" wait, one second at a time.
   useEffect(() => {
@@ -51,7 +63,7 @@ export function SignIn() {
   async function checkCode() {
     const digits = normaliseCode(code)
     if (!isPlausibleCode(digits)) {
-      setError('Type the code from the email: 6 or more digits.')
+      setError('Type the code from the email (just the numbers).')
       document.getElementById(`${ids}-code`)?.focus()
       return
     }
@@ -120,7 +132,7 @@ export function SignIn() {
             }}
           >
             <h2 className="sheet-title">Check your email</h2>
-            <p className="empty">
+            <p className="empty" id={`${ids}-sent`}>
               We sent a sign-in link to <strong className="signin-email">{email}</strong>. Tap the link on this
               device, or type the code from the email here.
             </p>
@@ -134,7 +146,9 @@ export function SignIn() {
                 onChange={(e) => setCode(e.target.value)}
                 maxLength={14}
                 className="code-input"
-                {...errorProps}
+                aria-invalid={error ? true : undefined}
+                // Focus lands here after "Email me a sign-in link", so read out where the email went too.
+                aria-describedby={[`${ids}-sent`, error ? `${ids}-error` : ''].join(' ').trim()}
               />
               {errorMessage}
             </div>

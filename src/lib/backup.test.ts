@@ -9,6 +9,9 @@ function opp(overrides: Partial<Opportunity> = {}): Opportunity {
     opensOn: null,
     deadline: '2026-12-01',
     link: 'https://example.org',
+    closingTime: null,
+    timeZone: null,
+    hearBackBy: null,
     status: 'todo',
     notes: 'CV',
     createdAt: '2026-11-01T00:00:00.000Z',
@@ -87,5 +90,18 @@ describe('mergeOpportunities', () => {
     const result = mergeOpportunities(withTheirsNewer, incoming)
     expect(result.toSave.map((o) => o.id)).toEqual(['theirs-newer', 'brand-new'])
     expect(result).toMatchObject({ added: 1, updated: 1, unchanged: 2 })
+  })
+})
+
+describe('closing times in backups', () => {
+  it('restores old backups that have no closing-time fields', () => {
+    const { closingTime: _a, timeZone: _b, hearBackBy: _c, ...old } = opp()
+    expect(parseBackup(JSON.stringify([old]))).toEqual({ ok: true, opportunities: [opp()] })
+  })
+
+  it('keeps closing times, zones and hear-back dates, and checks them', () => {
+    const timed = opp({ closingTime: '17:00', timeZone: 'Europe/Paris', hearBackBy: '2027-01-15' })
+    expect(parseBackup(JSON.stringify([timed]))).toEqual({ ok: true, opportunities: [timed] })
+    expect(errorOf(JSON.stringify([opp({ closingTime: '7pm' })]))).toMatch(/^Item 1: closing time:/)
   })
 })

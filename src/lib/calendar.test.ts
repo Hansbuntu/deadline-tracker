@@ -12,6 +12,9 @@ function opp(overrides: Partial<Opportunity> = {}): Opportunity {
     opensOn: null,
     deadline: '2026-12-31', // 54 days away: room for all four reminders
     link: 'https://example.org/call',
+    closingTime: null,
+    timeZone: null,
+    hearBackBy: null,
     status: 'todo',
     notes: '',
     createdAt: '2026-11-01T00:00:00.000Z',
@@ -135,5 +138,14 @@ describe('googleCalendarUrl', () => {
     const url = new URL(googleCalendarUrl(opp({ opensOn: '2026-11-20' }), 'opens'))
     expect(url.searchParams.get('text')).toBe('Applications open: Gasworks residency')
     expect(url.searchParams.get('dates')).toBe('20261120/20261121')
+  })
+})
+
+describe('closing times in calendar files', () => {
+  it('puts the GMT closing time in the title and uses the GMT date', () => {
+    const lines = unfold(buildIcs([opp({ deadline: '2026-12-01', closingTime: '23:59', timeZone: 'America/Los_Angeles' })], TODAY, NOW))
+    expect(lines).toContain('SUMMARY:Deadline: Gasworks residency (closes 07:59 GMT)')
+    expect(lines).toContain('DTSTART;VALUE=DATE:20261202') // already 2 Dec in Accra
+    expect(lines.find((l) => l.startsWith('DESCRIPTION:Closes at'))).toContain('23:59 Los Angeles time')
   })
 })

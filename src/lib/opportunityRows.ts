@@ -11,9 +11,12 @@ export interface OpportunityRow {
   name: string
   opens_on: string | null
   deadline: string
+  closing_time: string | null // Postgres "time": sent back as "17:00:00"
+  time_zone: string | null
   link: string
   status: Status
   notes: string
+  hear_back_by: string | null
   created_at: string
   updated_at: string
 }
@@ -29,9 +32,13 @@ export function fromRow(row: OpportunityRow): Opportunity {
     name: row.name,
     opensOn: row.opens_on,
     deadline: row.deadline,
+    // Rows saved before migration 0002 have no closing time columns at all.
+    closingTime: row.closing_time ? row.closing_time.slice(0, 5) : null, // "17:00:00" → "17:00"
+    timeZone: row.time_zone ?? null,
     link: row.link,
     status: row.status,
     notes: row.notes,
+    hearBackBy: row.hear_back_by ?? null,
     createdAt: toIsoTimestamp(row.created_at),
     updatedAt: toIsoTimestamp(row.updated_at),
   }
@@ -44,9 +51,12 @@ export function toRow(opportunity: Opportunity): Omit<OpportunityRow, 'user_id'>
     name: opportunity.name,
     opens_on: opportunity.opensOn,
     deadline: opportunity.deadline,
+    closing_time: opportunity.closingTime,
+    time_zone: opportunity.timeZone,
     link: opportunity.link,
     status: opportunity.status,
     notes: opportunity.notes,
+    hear_back_by: opportunity.hearBackBy,
     created_at: opportunity.createdAt,
     updated_at: opportunity.updatedAt,
   }

@@ -29,7 +29,11 @@ export function Toast({ toast, onDismiss, onHoldChange }: Props) {
           onFocus={() => onHoldChange(true)}
           onBlur={() => onHoldChange(false)}
         >
-          <span>{toast.text}</span>
+          <span>
+            {toast.text}
+            {/* Read out, not shown: keyboard users can undo without reaching the button. */}
+            {toast.undo && <span className="visually-hidden">. Press Control Z to undo.</span>}
+          </span>
           {toast.undo && (
             <button
               type="button"

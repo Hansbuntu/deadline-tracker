@@ -5,17 +5,20 @@ import { DataTools } from './components/DataTools.tsx'
 import { OpportunityDialog } from './components/OpportunityDialog.tsx'
 import { OpportunityList } from './components/OpportunityList.tsx'
 import { StatusTabs } from './components/StatusTabs.tsx'
+import { PlusIcon } from './components/icons.tsx'
 import { Toast, type ToastMessage } from './components/Toast.tsx'
 import { signOut } from './lib/auth.ts'
 import { createBackup, mergeOpportunities, parseBackup } from './lib/backup.ts'
 import { buildIcs } from './lib/calendar.ts'
 import { todayInGMT } from './lib/dates.ts'
 import { downloadFile, slugify } from './lib/files.ts'
+import { cardDomId, focusCard, LIST_HEADING_ID, neighbourOf } from './lib/focus.ts'
 import {
   closingSoon,
   countByStatus,
   createOpportunity,
   EMPTY_DRAFT,
+  isClosed,
   matchesFilter,
   STATUS_LABELS,
   toDraft,
@@ -35,7 +38,7 @@ import type { Opportunity, OpportunityDraft, Status } from './types.ts'
 type LoadState = { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; message: string }
 type Editor = { mode: 'add' } | { mode: 'edit'; opportunity: Opportunity }
 
-const TOAST_MS = 6000 // long enough to reach the Undo button, short enough not to linger
+const TOAST_MS = 8000 // long enough to read and reach Undo (Ctrl+Z also works), short enough not to linger
 const MAX_BACKUP_BYTES = 5_000_000 // a real backup is a few kilobytes; refuse anything huge
 
 const EMPTY_TAB_MESSAGES: Record<StatusFilter, string> = {
@@ -57,7 +60,16 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const [toastHeld, setToastHeld] = useState(false)
   const toastCount = useRef(0)
-  const today = todayInGMT()
+  const [loadAttempt, setLoadAttempt] = useState(0) // bumping this reloads the list ("Try again")
+
+  // The screen's clock. It ticks once a minute, so "Closes today, 16:00"
+  // turns into "Closed" on time, and "today" rolls over at midnight GMT.
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+  const today = todayInGMT(now)
 
   // Hide the message after a few seconds. A new message restarts the timer,
   // and it waits while you're pointing at or tabbed onto it.
@@ -94,7 +106,7 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [loadAttempt])
 
   // Coming back to this tab (say, after adding something on your phone)
   // quietly fetches the latest list, so every device stays in step.
@@ -115,6 +127,18 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
     setOpportunities((current) => current.map((o) => (o.id === updated.id ? updated : o)))
   }
 
+  // Where keyboard focus should go once the list has been redrawn (after a
+  // delete, move or undo). undefined = leave focus alone.
+  const pendingFocus = useRef<string | null | undefined>(undefined)
+  function focusAfterDraw(domId: string | null) {
+    pendingFocus.current = domId
+  }
+  useEffect(() => {
+    if (pendingFocus.current === undefined) return
+    focusCard(pendingFocus.current)
+    pendingFocus.current = undefined
+  }, [opportunities, filter])
+
   // --- Actions. Each one saves first, then updates the screen, so the screen
   // never shows something that isn't actually stored.
 
@@ -123,7 +147,12 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
     await saveOpportunity(created) // if this throws, the dialog shows the error
     setOpportunities((current) => [...current, created])
     if (filter === 'applied' || filter === 'skipped') setFilter('todo') // so you can see it
-    showToast(`Added “${created.name}”`)
+    // A past deadline goes straight under Closed, so say so rather than seeming to vanish.
+    showToast(
+      isClosed(created, today, new Date(created.createdAt))
+        ? `Added “${created.name}” under Closed, as its deadline has passed`
+        : `Added “${created.name}”`,
+    )
   }
 
   async function handleUpdate(original: Opportunity, draft: OpportunityDraft) {
@@ -133,14 +162,21 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
     showToast('Changes saved')
   }
 
-  async function handleStatusChange(opportunity: Opportunity, status: Status) {
+  async function handleStatusChange(opportunity: Opportunity, status: Status, isUndo = false) {
+    // If the card is about to leave this tab, note where focus should go next.
+    const leavesTab = filter !== 'all' && status !== filter
+    const nextFocus = leavesTab ? neighbourOf(opportunity.id) : null
     try {
       const updated = withStatus(opportunity, status)
       await saveOpportunity(updated)
+      // Ask for focus before the redraw: the next card if this one leaves the
+      // tab, or this card itself when an undo brings it back.
+      if (leavesTab) focusAfterDraw(nextFocus)
+      else if (isUndo) focusAfterDraw(cardDomId(opportunity.id))
       replaceInList(updated)
       // The card may leave the current tab, so say where it went and offer a way back.
       showToast(`“${opportunity.name}” moved to ${STATUS_LABELS[status]}`, () => {
-        void handleStatusChange(updated, opportunity.status)
+        void handleStatusChange(updated, opportunity.status, true)
       })
     } catch (error) {
       showToast(errorText(error))
@@ -148,9 +184,11 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
   }
 
   async function handleDelete(opportunity: Opportunity) {
+    const nextFocus = neighbourOf(opportunity.id)
     try {
       await deleteOpportunity(opportunity.id)
       setOpportunities((current) => current.filter((o) => o.id !== opportunity.id))
+      focusAfterDraw(nextFocus) // keep keyboard users in the list, not back at the top
       // Undo instead of "Are you sure?": quicker, and mistakes are easy to reverse.
       showToast(`Deleted “${opportunity.name}”`, () => void restore(opportunity))
     } catch (error) {
@@ -162,14 +200,37 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
     try {
       await saveOpportunity(opportunity)
       setOpportunities((current) => [...current, opportunity])
+      focusAfterDraw(cardDomId(opportunity.id))
+      showToast(`Restored “${opportunity.name}”`)
     } catch (error) {
       showToast(errorText(error))
     }
   }
 
+  // Ctrl+Z (⌘Z on a Mac) undoes the last delete or move while its message is
+  // showing, so nobody has to chase the Undo button. Ignored while typing.
+  const undoRef = useRef<(() => void) | undefined>(undefined)
+  useEffect(() => {
+    undoRef.current = toast?.undo // the latest Undo, for the keyboard shortcut below
+  }, [toast])
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.key.toLowerCase() !== 'z') return
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"], dialog')) return
+      const undo = undoRef.current
+      if (!undo) return
+      event.preventDefault()
+      undo()
+      setToast(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   // --- Calendar and backup
 
-  const openTodo = opportunities.filter((o) => o.status === 'todo' && o.deadline >= today)
+  const openTodo = opportunities.filter((o) => o.status === 'todo' && !isClosed(o, today, now))
 
   function handleDownloadIcs(opportunity: Opportunity) {
     downloadFile(`${slugify(opportunity.name)}.ics`, buildIcs([opportunity], today), 'text/calendar')
@@ -207,10 +268,21 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
 
   // --- What to show
 
-  const counts = countByStatus(opportunities)
+  const counts = countByStatus(opportunities, today, now)
   const visible = opportunities.filter((o) => matchesFilter(o, filter))
   const emptyMessage = visible.length === 0 ? EMPTY_TAB_MESSAGES[filter] : 'Nothing still open here.'
   const openAdd = () => setEditor({ mode: 'add' })
+
+  /** From the "next 7 days" line: show that card, switching to To do if it's hidden. */
+  function jumpTo(opportunity: Opportunity) {
+    const domId = cardDomId(opportunity.id)
+    if (document.getElementById(domId)) {
+      focusCard(domId)
+      return
+    }
+    focusAfterDraw(domId)
+    setFilter('todo')
+  }
 
   return (
     <div className="app">
@@ -219,18 +291,28 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
           <h1 className="title">Deadlines</h1>
           <p className="tagline">Open calls, residencies and grants</p>
         </div>
-        <button type="button" className="button button-primary" onClick={openAdd}>
+        <button type="button" className="button button-primary add-top" onClick={openAdd}>
           <PlusIcon /> Add
         </button>
       </header>
 
       <main>
-        {load.kind === 'loading' && <p className="empty">Loading…</p>}
+        {load.kind === 'loading' && <p className="empty">Loading your list…</p>}
 
         {load.kind === 'error' && (
-          <p className="alert" role="alert">
-            {load.message}
-          </p>
+          <div className="alert load-error" role="alert">
+            <p>{load.message}</p>
+            <button
+              type="button"
+              className="button button-quiet button-small"
+              onClick={() => {
+                setLoad({ kind: 'loading' })
+                setLoadAttempt((n) => n + 1)
+              }}
+            >
+              Try again
+            </button>
+          </div>
         )}
 
         {load.kind === 'ready' && opportunities.length === 0 && (
@@ -245,12 +327,22 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
 
         {load.kind === 'ready' && opportunities.length > 0 && (
           <>
-            <ClosingSoonBanner items={closingSoon(opportunities, today)} today={today} />
-            <h2 className="visually-hidden">Your opportunities</h2>
+            <ClosingSoonBanner
+              items={closingSoon(opportunities, today, now)}
+              today={today}
+              now={now}
+              onJump={jumpTo}
+            />
+            {/* tabIndex -1: focus can land here after the last card in a tab is removed */}
+            <h2 className="visually-hidden" id={LIST_HEADING_ID} tabIndex={-1}>
+              Your opportunities
+            </h2>
             <StatusTabs value={filter} counts={counts} onChange={setFilter} />
+            {(filter === 'todo' || filter === 'all') && <UrgencyLegend />}
             <OpportunityList
               opportunities={visible}
               today={today}
+              now={now}
               emptyMessage={emptyMessage}
               onStatusChange={(o, status) => void handleStatusChange(o, status)}
               onEdit={(o) => setEditor({ mode: 'edit', opportunity: o })}
@@ -263,7 +355,7 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
         {load.kind === 'ready' && (
           <DataTools
             exportCount={openTodo.length}
-            canBackUp={opportunities.length > 0}
+            isEmpty={opportunities.length === 0}
             onBackup={handleBackup}
             onRestore={(file) => void handleRestore(file)}
             onExportCalendar={handleExportCalendar}
@@ -284,6 +376,8 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
           title="Add an opportunity"
           submitLabel="Add"
           initial={EMPTY_DRAFT}
+          draftKey="add"
+          today={today}
           onSubmit={handleCreate}
           onClose={() => setEditor(null)}
         />
@@ -293,9 +387,19 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
           title="Edit opportunity"
           submitLabel="Save changes"
           initial={toDraft(editor.opportunity)}
+          draftKey={`edit:${editor.opportunity.id}`}
+          today={today}
+          showHearBackBy={editor.opportunity.status === 'applied'}
           onSubmit={(draft) => handleUpdate(editor.opportunity, draft)}
           onClose={() => setEditor(null)}
         />
+      )}
+
+      {/* On phones, Add floats at the bottom, within thumb reach (the header one is hidden there). */}
+      {load.kind === 'ready' && (
+        <button type="button" className="button button-primary add-fab" onClick={openAdd}>
+          <PlusIcon /> Add
+        </button>
       )}
 
       <Toast
@@ -310,11 +414,22 @@ export function Tracker({ accountEmail }: { accountEmail: string }) {
   )
 }
 
-function PlusIcon() {
-  // Decorative: the button's text already says "Add", so screen readers skip this.
+/** What the coloured dots mean. Visual only: each status already says it in words. */
+function UrgencyLegend() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+    <p className="legend" aria-hidden="true">
+      <span className="legend-item" data-tone="urgent">
+        7 days or less
+      </span>
+      <span className="legend-item" data-tone="soon">
+        2 weeks
+      </span>
+      <span className="legend-item" data-tone="upcoming">
+        a month
+      </span>
+      <span className="legend-item" data-tone="later">
+        more
+      </span>
+    </p>
   )
 }

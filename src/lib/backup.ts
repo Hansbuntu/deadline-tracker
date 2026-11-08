@@ -11,9 +11,12 @@ const STATUSES: readonly Status[] = ['todo', 'applied', 'skipped']
 const FIELD_NAMES: Record<keyof OpportunityDraft, string> = {
   name: 'name',
   deadline: 'deadline',
+  closingTime: 'closing time',
+  timeZone: 'time zone',
   opensOn: 'opening date',
   link: 'link',
   notes: 'notes',
+  hearBackBy: 'hear-back date',
 }
 
 /** The whole list as JSON text, with a small label saying what it is. */
@@ -60,19 +63,33 @@ export function parseBackup(text: string): ParseResult {
 /** Check one item. Returns a tidy Opportunity, or a sentence saying what's wrong. */
 function toOpportunity(item: unknown): Opportunity | string {
   if (!isRecord(item)) return 'this isn’t an opportunity.'
-  const { id, name, opensOn, deadline, link, status, notes, createdAt, updatedAt } = item
+  const { id, name, opensOn, deadline, closingTime, timeZone, link, status, notes, hearBackBy, createdAt, updatedAt } =
+    item
 
   if (typeof id !== 'string' || !id.trim()) return 'it has no id.'
   if (typeof name !== 'string') return 'it has no name.'
   if (typeof deadline !== 'string') return 'it has no deadline.'
   if (opensOn != null && typeof opensOn !== 'string') return 'its opening date isn’t a date.'
+  // Closing time, time zone and hear-back date arrived later; older backups simply don't have them.
+  if (closingTime != null && typeof closingTime !== 'string') return 'its closing time isn’t a time.'
+  if (timeZone != null && typeof timeZone !== 'string') return 'its time zone isn’t text.'
+  if (hearBackBy != null && typeof hearBackBy !== 'string') return 'its hear-back date isn’t a date.'
   if (link != null && typeof link !== 'string') return 'its link isn’t text.'
   if (notes != null && typeof notes !== 'string') return 'its notes aren’t text.'
   if (typeof status !== 'string' || !STATUSES.includes(status as Status)) return `unknown status “${String(status)}”.`
   if (!isTimestamp(createdAt) || !isTimestamp(updatedAt)) return 'its timestamps are missing or broken.'
 
-  // Same rules as the form: real dates, opening before deadline, only web links.
-  const draft: OpportunityDraft = { name, opensOn: opensOn ?? '', deadline, link: link ?? '', notes: notes ?? '' }
+  // Same rules as the form: real dates and times, opening before deadline, only web links.
+  const draft: OpportunityDraft = {
+    name,
+    opensOn: opensOn ?? '',
+    deadline,
+    closingTime: closingTime ?? '',
+    timeZone: timeZone ?? '',
+    link: link ?? '',
+    notes: notes ?? '',
+    hearBackBy: hearBackBy ?? '',
+  }
   const errors = validateDraft(draft)
   const field = (Object.keys(errors) as (keyof OpportunityDraft)[])[0]
   if (field) return `${FIELD_NAMES[field]}: ${errors[field]}`
@@ -82,9 +99,12 @@ function toOpportunity(item: unknown): Opportunity | string {
     name: name.trim(),
     opensOn: opensOn || null,
     deadline,
+    closingTime: closingTime || null,
+    timeZone: closingTime && timeZone ? timeZone : null,
     link: (link ?? '').trim(),
     status: status as Status,
     notes: (notes ?? '').trim(),
+    hearBackBy: hearBackBy || null,
     createdAt,
     updatedAt,
   }

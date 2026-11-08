@@ -1,14 +1,37 @@
-import { useEffect, useId, useRef, useState } from 'react'
-import { validateDraft, type DraftErrors } from '../lib/opportunity.ts'
-import type { OpportunityDraft } from '../types.ts'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { isValidDate, isValidTime } from '../lib/dates.ts'
+import { clearDraft, loadDraft, saveDraft } from '../lib/drafts.ts'
+import {
+  createOpportunity,
+  describeClosingTime,
+  draftWarnings,
+  validateDraft,
+  type DraftErrors,
+} from '../lib/opportunity.ts'
+import { allZones, COMMON_ZONES, zoneOptionLabel } from '../lib/timeZones.ts'
+import type { DateString, OpportunityDraft } from '../types.ts'
 
 // Field order on screen, used to move focus to the first problem.
-const FIELD_ORDER: (keyof OpportunityDraft)[] = ['name', 'deadline', 'opensOn', 'link', 'notes']
+const FIELD_ORDER: (keyof OpportunityDraft)[] = [
+  'name',
+  'deadline',
+  'closingTime',
+  'timeZone',
+  'opensOn',
+  'link',
+  'notes',
+  'hearBackBy',
+]
 
 interface Props {
   title: string
   submitLabel: string
   initial: OpportunityDraft
+  /** Where an unfinished version of this form is kept ("add", or "edit:<id>"). */
+  draftKey: string
+  today: DateString
+  /** Ask "Hear back by?" (only for things you've applied for). */
+  showHearBackBy?: boolean
   /** Save the draft. If it throws, the dialog stays open and shows the error. */
   onSubmit: (draft: OpportunityDraft) => Promise<void>
   onClose: () => void
@@ -19,21 +42,54 @@ interface Props {
  * showModal() gives us for free: a dimmed backdrop, Esc to close, keyboard
  * focus kept inside, and the page behind made inactive.
  */
-export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClose }: Props) {
+export function OpportunityDialog({
+  title,
+  submitLabel,
+  initial,
+  draftKey,
+  today,
+  showHearBackBy = false,
+  onSubmit,
+  onClose,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
-  const [draft, setDraft] = useState<OpportunityDraft>(initial)
+  const keepEditingRef = useRef<HTMLButtonElement>(null)
+
+  // If you were part-way through this form before (say the app reloaded after
+  // switching apps), carry on from there.
+  const [restored] = useState(() => {
+    const saved = loadDraft(draftKey)
+    return saved && JSON.stringify(saved) !== JSON.stringify(initial) ? saved : null
+  })
+  const [draft, setDraft] = useState<OpportunityDraft>(() => ({ ...initial, ...(restored ?? {}) }))
   const [errors, setErrors] = useState<DraftErrors>({})
   const [triedSubmit, setTriedSubmit] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
 
   const baseId = useId()
   const idFor = (field: keyof OpportunityDraft) => `${baseId}-${field}`
   const errorId = (field: keyof OpportunityDraft) => `${idFor(field)}-error`
-  const a11yProps = (field: keyof OpportunityDraft) =>
-    errors[field] ? { 'aria-invalid': true, 'aria-describedby': errorId(field) } : {}
+  const hintId = (field: keyof OpportunityDraft) => `${idFor(field)}-hint`
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(initial)
+  const warnings = draftWarnings(draft, today)
+
+  /** Accessibility wiring: mark invalid fields and link them to their error and hint text. */
+  function describe(field: keyof OpportunityDraft, extraHint = false) {
+    const ids = [errors[field] && errorId(field), (warnings[field] || extraHint) && hintId(field)].filter(Boolean)
+    return {
+      ...(errors[field] ? { 'aria-invalid': true } : {}),
+      ...(ids.length ? { 'aria-describedby': ids.join(' ') } : {}),
+    }
+  }
+
+  // Keep unfinished typing on this device; forget it once it matches what's saved.
+  useEffect(() => {
+    if (isDirty) saveDraft(draftKey, draft)
+    else clearDraft(draftKey)
+  }, [draft, draftKey, isDirty])
 
   // Open as a modal when this component appears; close it when it goes away.
   // React removes the dialog from the page before the browser can return focus,
@@ -49,15 +105,26 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
     }
   }, [])
 
+  // When the "Discard your changes?" question appears, put focus on the safe answer.
+  useEffect(() => {
+    if (confirmingDiscard) keepEditingRef.current?.focus()
+  }, [confirmingDiscard])
+
   function requestClose() {
     if (saving) return
-    if (isDirty && !window.confirm('Discard your changes?')) return
+    if (isDirty) setConfirmingDiscard(true) // ask inside the form, not with a browser pop-up
+    else onClose()
+  }
+
+  function discard() {
+    clearDraft(draftKey)
     onClose()
   }
 
   function update(field: keyof OpportunityDraft, value: string) {
     const next = { ...draft, [field]: value }
     setDraft(next)
+    setConfirmingDiscard(false)
     // After a failed submit, re-check as you type so errors disappear once fixed.
     if (triedSubmit) setErrors(validateDraft(next))
   }
@@ -76,6 +143,7 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
     setSaveError(null)
     try {
       await onSubmit(draft)
+      clearDraft(draftKey)
       onClose()
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Something went wrong while saving.')
@@ -83,15 +151,36 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
     }
   }
 
+  // Time zone menu: the zones calls often use first, then every zone. Offsets
+  // are worked out for the deadline date, so summer time shows correctly.
+  const zoneOptions = useMemo(() => {
+    const onDate = isValidDate(draft.deadline) ? new Date(`${draft.deadline}T12:00:00Z`) : new Date(`${today}T12:00:00Z`)
+    const common = COMMON_ZONES.filter((zone) => zone !== 'Africa/Accra').map((zone) => ({
+      value: zone,
+      label: zoneOptionLabel(zone, onDate),
+    }))
+    const everyOther = allZones()
+      .filter((zone) => !COMMON_ZONES.includes(zone))
+      .map((zone) => ({ value: zone, label: zone.replaceAll('_', ' ') }))
+    return { common, everyOther, accra: zoneOptionLabel('Africa/Accra', onDate) }
+  }, [draft.deadline, today])
+
+  // A live check of the conversion: "Closes at 17:00 Paris time (16:00 GMT)".
+  const closingPreview =
+    isValidDate(draft.deadline) && isValidTime(draft.closingTime)
+      ? describeClosingTime(createOpportunity(draft, new Date(0), 'preview'))
+      : null
+
   return (
     <dialog
       ref={dialogRef}
       className="sheet"
       aria-labelledby={`${baseId}-title`}
       onCancel={(event) => {
-        // Esc key: ask first if there is unsaved typing.
+        // Esc key: ask first if there is unsaved typing; a second Esc keeps editing.
         event.preventDefault()
-        requestClose()
+        if (confirmingDiscard) setConfirmingDiscard(false)
+        else requestClose()
       }}
       onClick={(event) => {
         // A click on the dim backdrop lands on the <dialog> itself.
@@ -110,15 +199,22 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
           {title}
         </h2>
 
+        {restored && (
+          <p className="form-note" role="status">
+            This is what you were typing last time.
+          </p>
+        )}
+
         <div className="field">
           <label htmlFor={idFor('name')}>Name</label>
           <input
             id={idFor('name')}
+            aria-required="true"
             value={draft.name}
             onChange={(e) => update('name', e.target.value)}
             placeholder="e.g. Gasworks residency 2027"
             autoComplete="off"
-            {...a11yProps('name')}
+            {...describe('name')}
           />
           <FieldError id={errorId('name')} message={errors.name} />
         </div>
@@ -128,32 +224,88 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
             <label htmlFor={idFor('deadline')}>Deadline</label>
             <input
               id={idFor('deadline')}
+              aria-required="true"
               type="date"
               value={draft.deadline}
               onChange={(e) => update('deadline', e.target.value)}
-              {...a11yProps('deadline')}
+              {...describe('deadline')}
             />
             <FieldError id={errorId('deadline')} message={errors.deadline} />
+            {!errors.deadline && warnings.deadline && (
+              <p className="field-hint field-hint-warning" id={hintId('deadline')}>
+                {warnings.deadline}
+              </p>
+            )}
           </div>
 
           <div className="field">
-            <label htmlFor={idFor('opensOn')}>
-              Opens <span className="optional">(optional)</span>
+            <label htmlFor={idFor('closingTime')}>
+              Closing time <span className="optional">(optional)</span>
             </label>
             <input
-              id={idFor('opensOn')}
-              type="date"
-              value={draft.opensOn ?? ''}
-              onChange={(e) => update('opensOn', e.target.value)}
-              {...a11yProps('opensOn')}
+              id={idFor('closingTime')}
+              type="time"
+              value={draft.closingTime}
+              onChange={(e) => update('closingTime', e.target.value)}
+              {...describe('closingTime')}
             />
-            <FieldError id={errorId('opensOn')} message={errors.opensOn} />
+            <FieldError id={errorId('closingTime')} message={errors.closingTime} />
           </div>
+        </div>
+
+        {/* Only asked once there's a time, so the form stays short when there isn't. */}
+        {draft.closingTime && (
+          <div className="field">
+            <label htmlFor={idFor('timeZone')}>Time zone of that time</label>
+            <select
+              id={idFor('timeZone')}
+              className="field-select"
+              value={draft.timeZone}
+              onChange={(e) => update('timeZone', e.target.value)}
+              {...describe('timeZone', true)}
+            >
+              <option value="">{zoneOptions.accra}</option>
+              <optgroup label="Often used by open calls">
+                {zoneOptions.common.map((zone) => (
+                  <option key={zone.value} value={zone.value}>
+                    {zone.label}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="All time zones">
+                {zoneOptions.everyOther.map((zone) => (
+                  <option key={zone.value} value={zone.value}>
+                    {zone.label}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+            <FieldError id={errorId('timeZone')} message={errors.timeZone} />
+            <p className="field-hint" id={hintId('timeZone')}>
+              {closingPreview
+                ? `Closes at ${closingPreview}.`
+                : 'As the call states it. For example, “17:00 CET” is Paris.'}
+            </p>
+          </div>
+        )}
+
+        <div className="field">
+          <label htmlFor={idFor('opensOn')}>
+            Applications open <span className="optional">(optional)</span>
+          </label>
+          <input
+            id={idFor('opensOn')}
+            type="date"
+            value={draft.opensOn ?? ''}
+            onChange={(e) => update('opensOn', e.target.value)}
+            {...describe('opensOn')}
+          />
+          <FieldError id={errorId('opensOn')} message={errors.opensOn} />
         </div>
 
         <div className="field">
           <label htmlFor={idFor('link')}>
-            Link <span className="optional">(optional)</span>
+            Link to the call <span className="optional">(optional)</span>
           </label>
           <input
             id={idFor('link')}
@@ -162,7 +314,7 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
             value={draft.link}
             onChange={(e) => update('link', e.target.value)}
             placeholder="https://"
-            {...a11yProps('link')}
+            {...describe('link')}
           />
           <FieldError id={errorId('link')} message={errors.link} />
         </div>
@@ -177,10 +329,26 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
             onChange={(e) => update('notes', e.target.value)}
             placeholder="Fee, what to send, who to ask for a reference…"
             rows={3}
-            {...a11yProps('notes')}
+            {...describe('notes')}
           />
           <FieldError id={errorId('notes')} message={errors.notes} />
         </div>
+
+        {showHearBackBy && (
+          <div className="field">
+            <label htmlFor={idFor('hearBackBy')}>
+              Results expected by <span className="optional">(optional)</span>
+            </label>
+            <input
+              id={idFor('hearBackBy')}
+              type="date"
+              value={draft.hearBackBy}
+              onChange={(e) => update('hearBackBy', e.target.value)}
+              {...describe('hearBackBy')}
+            />
+            <FieldError id={errorId('hearBackBy')} message={errors.hearBackBy} />
+          </div>
+        )}
 
         {saveError && (
           <p className="alert" role="alert">
@@ -188,14 +356,33 @@ export function OpportunityDialog({ title, submitLabel, initial, onSubmit, onClo
           </p>
         )}
 
-        <div className="sheet-actions">
-          <button type="button" className="button button-quiet" onClick={requestClose} disabled={saving}>
-            Cancel
-          </button>
-          <button type="submit" className="button button-primary" disabled={saving}>
-            {saving ? 'Saving…' : submitLabel}
-          </button>
-        </div>
+        {confirmingDiscard ? (
+          <div className="sheet-actions sheet-actions-confirm" role="group" aria-labelledby={`${baseId}-discard`}>
+            <p className="sheet-confirm-text" id={`${baseId}-discard`}>
+              Discard your changes?
+            </p>
+            <button
+              ref={keepEditingRef}
+              type="button"
+              className="button button-quiet"
+              onClick={() => setConfirmingDiscard(false)}
+            >
+              Keep editing
+            </button>
+            <button type="button" className="button button-danger-solid" onClick={discard}>
+              Discard
+            </button>
+          </div>
+        ) : (
+          <div className="sheet-actions">
+            <button type="button" className="button button-quiet" onClick={requestClose} disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" className="button button-primary" disabled={saving}>
+              {saving ? 'Saving…' : submitLabel}
+            </button>
+          </div>
+        )}
       </form>
     </dialog>
   )

@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { Opportunity, OpportunityDraft } from '../types.ts'
 import {
+  closingMoment,
   closingSoon,
   countByStatus,
   createOpportunity,
   daysLeft,
+  describeClosingTime,
   describeDaysLeft,
+  describeDeadline,
   describeOpens,
+  draftWarnings,
+  effectiveDeadline,
+  isClosed,
   matchesFilter,
   sortForDisplay,
   splitOpenAndClosed,
@@ -21,7 +27,17 @@ import {
 const TODAY = '2026-11-07'
 
 function draft(overrides: Partial<OpportunityDraft> = {}): OpportunityDraft {
-  return { name: 'Gasworks residency', opensOn: null, deadline: '2026-12-01', link: '', notes: '', ...overrides }
+  return {
+    name: 'Gasworks residency',
+    opensOn: null,
+    deadline: '2026-12-01',
+    closingTime: '',
+    timeZone: '',
+    link: '',
+    notes: '',
+    hearBackBy: '',
+    ...overrides,
+  }
 }
 
 function opp(name: string, deadline: string): Opportunity {
@@ -52,7 +68,7 @@ describe('urgencyFor', () => {
 describe('describeDaysLeft', () => {
   it('reads naturally', () => {
     expect(describeDaysLeft(12)).toBe('12 days left')
-    expect(describeDaysLeft(1)).toBe('1 day left')
+    expect(describeDaysLeft(1)).toBe('Closes tomorrow')
     expect(describeDaysLeft(0)).toBe('Closes today')
     expect(describeDaysLeft(-1)).toBe('Closed yesterday')
     expect(describeDaysLeft(-5)).toBe('Closed 5 days ago')
@@ -111,9 +127,12 @@ describe('createOpportunity', () => {
       name: 'Gasworks',
       opensOn: null,
       deadline: '2026-12-01',
+      closingTime: null,
+      timeZone: null,
       link: '',
       status: 'todo',
       notes: 'bring CV',
+      hearBackBy: null,
       createdAt: '2026-11-07T10:00:00.000Z',
       updatedAt: '2026-11-07T10:00:00.000Z',
     })
@@ -234,5 +253,94 @@ describe('splitOpenAndClosed', () => {
     )
     expect(open.map((o) => o.name)).toEqual(['Today', 'Later'])
     expect(closed.map((o) => o.name)).toEqual(['Closed'])
+  })
+})
+
+describe('closing times', () => {
+  const withTime = (name: string, deadline: string, closingTime: string, timeZone = '') =>
+    createOpportunity(draft({ name, deadline, closingTime, timeZone }), new Date('2026-11-01T00:00:00Z'), name)
+
+  it('knows the exact closing moment and its GMT date', () => {
+    const paris = withTime('Paris', '2026-12-01', '17:00', 'Europe/Paris')
+    expect(closingMoment(paris)?.toISOString()).toBe('2026-12-01T16:00:00.000Z')
+    expect(effectiveDeadline(paris)).toBe('2026-12-01')
+    const la = withTime('LA', '2026-12-01', '23:59', 'America/Los_Angeles')
+    expect(effectiveDeadline(la)).toBe('2026-12-02') // already the next day in Accra
+    expect(daysLeft(la, '2026-11-30')).toBe(2)
+  })
+
+  it('stays open on the day until the closing time has passed', () => {
+    const today = withTime('Today', TODAY, '16:00')
+    expect(isClosed(today, TODAY, new Date('2026-11-07T15:59:00Z'))).toBe(false)
+    expect(isClosed(today, TODAY, new Date('2026-11-07T16:01:00Z'))).toBe(true)
+    expect(isClosed(today, TODAY)).toBe(false) // without the time of day, the whole day counts
+    expect(isClosed(opp('No time', TODAY), TODAY, new Date('2026-11-07T23:00:00Z'))).toBe(false)
+  })
+
+  it('gives the time in the badge on the last two days', () => {
+    const today = withTime('Today', TODAY, '16:00')
+    expect(describeDeadline(today, TODAY, new Date('2026-11-07T10:00:00Z'))).toBe('Closes today, 16:00')
+    expect(describeDeadline(today, TODAY, new Date('2026-11-07T17:00:00Z'))).toBe('Closed today, 16:00')
+    expect(describeDeadline(withTime('Paris', '2026-11-08', '17:00', 'Europe/Paris'), TODAY)).toBe(
+      'Closes tomorrow, 16:00',
+    )
+    expect(describeDeadline(opp('Plain', '2026-11-08'), TODAY)).toBe('Closes tomorrow')
+    expect(describeDeadline(opp('Later', '2026-11-20'), TODAY)).toBe('13 days left')
+  })
+
+  it('writes the closing time out, in the call time zone and in GMT', () => {
+    expect(describeClosingTime(withTime('A', '2026-12-01', '16:00'))).toBe('16:00 GMT')
+    expect(describeClosingTime(withTime('B', '2026-12-01', '17:00', 'Europe/Paris'))).toBe('17:00 Paris time (16:00 GMT)')
+    expect(describeClosingTime(withTime('C', '2026-12-01', '23:59', 'America/Los_Angeles'))).toBe(
+      '23:59 Los Angeles time (07:59 GMT, 2 Dec 2026)',
+    )
+    expect(describeClosingTime(opp('Plain', '2026-12-01'))).toBeNull()
+  })
+
+  it('stores GMT zones as no zone, and a zone only together with a time', () => {
+    expect(withTime('A', '2026-12-01', '16:00', 'Africa/Accra').timeZone).toBeNull()
+    expect(withTime('B', '2026-12-01', '', 'Europe/Paris').timeZone).toBeNull()
+    expect(withTime('C', '2026-12-01', '17:00', 'Europe/Paris').timeZone).toBe('Europe/Paris')
+  })
+
+  it('orders same-day deadlines by their closing time, untimed ones last', () => {
+    const list = [withTime('Untimed', '2026-12-01', ''), withTime('Late', '2026-12-01', '18:00'), withTime('Early', '2026-12-01', '09:00')]
+    expect(sortForDisplay(list, TODAY).map((o) => o.name)).toEqual(['Early', 'Late', 'Untimed'])
+  })
+
+  it('drops an item from the 7-day list once its time has passed today', () => {
+    const today = withTime('Today', TODAY, '16:00')
+    expect(closingSoon([today], TODAY, new Date('2026-11-07T10:00:00Z'))).toHaveLength(1)
+    expect(closingSoon([today], TODAY, new Date('2026-11-07T17:00:00Z'))).toHaveLength(0)
+  })
+})
+
+describe('validateDraft: times, zones and links', () => {
+  it('checks closing times and time zones', () => {
+    expect(validateDraft(draft({ closingTime: '17:00', timeZone: 'Europe/Paris' }))).toEqual({})
+    expect(validateDraft(draft({ closingTime: '25:00' })).closingTime).toBeDefined()
+    expect(validateDraft(draft({ closingTime: '17:00', timeZone: 'Mars/Olympus' })).timeZone).toBeDefined()
+    expect(validateDraft(draft({ hearBackBy: '2027-02-30' })).hearBackBy).toBeDefined()
+  })
+
+  it('accepts www. links and adds https://', () => {
+    expect(validateDraft(draft({ link: 'www.example.org' })).link).toBeUndefined()
+    expect(createOpportunity(draft({ link: 'www.example.org' })).link).toBe('https://www.example.org')
+  })
+})
+
+describe('draftWarnings', () => {
+  it('warns, without blocking, when the deadline has already passed', () => {
+    expect(draftWarnings(draft({ deadline: '2026-11-06' }), TODAY).deadline).toMatch(/passed/)
+    expect(draftWarnings(draft({ deadline: TODAY }), TODAY)).toEqual({})
+    expect(validateDraft(draft({ deadline: '2026-11-06' }))).toEqual({}) // still allowed
+  })
+})
+
+describe('countByStatus with today', () => {
+  it('leaves passed to-do deadlines out of the To do count', () => {
+    const list = [opp('Open', '2026-12-01'), opp('Missed', '2026-11-01')]
+    expect(countByStatus(list, TODAY).todo).toBe(1)
+    expect(countByStatus(list).todo).toBe(2)
   })
 })

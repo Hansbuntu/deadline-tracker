@@ -55,6 +55,60 @@ export function addDays(value: DateString, days: number): DateString {
   return new Date(startOfDayMs(value) + days * MS_PER_DAY).toISOString().slice(0, 10)
 }
 
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+
+/** True for a 24-hour clock time written "HH:MM", like "09:30" or "23:59". */
+export function isValidTime(value: string): boolean {
+  return TIME_PATTERN.test(value)
+}
+
+/** True if the browser knows this IANA time zone name, like "Europe/Paris". */
+export function isValidTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: value })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** How far ahead of GMT a time zone's clocks are at a given moment, in milliseconds. */
+function zoneOffsetMs(instant: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(instant))
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value)
+  const wallClock = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
+  return wallClock - instant
+}
+
+/**
+ * The exact moment a local clock time happens somewhere: "17:00 on 1 Dec in
+ * Europe/Paris" → 16:00 GMT. Uses the browser's time-zone database, so summer
+ * time is handled (17:00 in Paris in July is 15:00 GMT).
+ */
+export function zonedTimeToUtc(date: DateString, time: string, timeZone: string): Date {
+  const [year, month, day] = date.split('-').map(Number)
+  const [hours, minutes] = time.split(':').map(Number)
+  const asIfGmt = Date.UTC(year, month - 1, day, hours, minutes)
+  // First guess, then correct once more in case the guess crossed a clock change.
+  let instant = asIfGmt - zoneOffsetMs(asIfGmt, timeZone)
+  instant = asIfGmt - zoneOffsetMs(instant, timeZone)
+  return new Date(instant)
+}
+
+/** "16:00" for a moment, on the GMT clock. */
+export function formatTimeGMT(moment: Date): string {
+  return moment.toISOString().slice(11, 16)
+}
+
 /** A date for people to read: "15 Dec 2026". */
 export function formatDate(value: DateString): string {
   return displayFormat.format(new Date(startOfDayMs(value)))
